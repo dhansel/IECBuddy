@@ -1,0 +1,49 @@
+#ifndef IECSIDEKICK64_H
+#define IECSIDEKICK64_H
+
+#include "src/IECDevice/IECFileDevice.h"
+#include <LittleFS.h>
+#include "src/VDrive/VDriveClass.h"
+
+#define IEC_BUFSIZE 64
+
+class IECSidekick64 : public IECFileDevice
+{
+ public: 
+  IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinLED);
+
+  virtual void getStatus(char *buffer, uint8_t bufferSize);
+  virtual void execute(const char *command, uint8_t len);
+
+ protected:
+  virtual void begin();
+  virtual void task();
+
+  virtual bool open(uint8_t channel, const char *name);
+  virtual uint8_t read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi);
+  virtual uint8_t write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi);
+  virtual void close(uint8_t channel);
+  virtual void reset();
+
+ private:
+  bool checkCard();
+  uint8_t openFile(uint8_t channel, const char *name);
+  uint8_t openDir();
+  bool readDir(uint8_t *data);
+  bool isMatch(const char *name, const char *pattern, uint8_t extmatch);
+  bool chdir(const String &dir);
+
+  const char *findFile(const char *name, char ftype);
+
+  VDrive *m_drive;
+
+  File m_file;
+  Dir  m_dir;
+
+  bool m_dirOpen;
+  uint8_t m_pinLED, m_pinChipSelect, m_errorCode, m_scratched;
+  uint8_t m_dirBufferLen, m_dirBufferPtr;
+  char m_dirBuffer[IEC_BUFSIZE];
+};
+
+#endif
