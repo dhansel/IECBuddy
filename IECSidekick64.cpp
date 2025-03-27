@@ -4,6 +4,7 @@
 #define E_OK          0
 #define E_SCRATCHED   1
 #define E_READ       20
+#define E_WRITEPROT  26
 #define E_WRITE      28
 #define E_INVCMD     31
 #define E_INVNAME    33
@@ -13,6 +14,8 @@
 #define E_NOTREADY   74
 #define E_TOOMANY    98
 #define E_VDRIVE     255
+
+#define CONFIGFILENAME "$CONFIG$"
 
 #ifndef min
 #define min(a,b) ((a)<(b) ? (a) : (b))
@@ -40,6 +43,10 @@ void IECSidekick64::begin()
 
   m_errorCode = E_SPLASH;
   LittleFS.begin();
+  readConfig();
+
+  int d = std::atoi(getConfigValue("Device").c_str());
+  if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
 
   if( m_pinLED<0xFF ) 
     {
@@ -51,12 +58,6 @@ void IECSidekick64::begin()
   m_drive = new VDrive(0);
 
   IECFileDevice::begin();
-}
-
-
-bool IECSidekick64::checkCard()
-{
-  return true;
 }
 
 
@@ -85,6 +86,74 @@ void IECSidekick64::task()
 }
 
 
+const std::string &IECSidekick64::getConfigValue(const std::string &key)
+{
+  return m_config[key];
+}
+
+
+void IECSidekick64::setConfigValue(const std::string &key, const std::string &value, bool write)
+{
+  m_config[key] = value;
+  if( write ) writeConfig();
+}
+
+
+void IECSidekick64::readConfig()
+{
+  bool ok = false;
+
+  m_config.clear();
+  File f = LittleFS.open("/" CONFIGFILENAME, "r");
+  if( f )
+    {
+      char *s = (char *) calloc(1, f.size()+1);
+      if( s )
+        {
+          ok = f.read((uint8_t *) s, f.size())==f.size();
+          if( ok )
+            {
+              char *p;
+              for(char *line=strtok_r(s, "\n", &p); line!=NULL; line=strtok_r(NULL, "\n", &p))
+                {
+                  char *eq = strchr(line, '=');
+                  if( eq!=NULL )
+                    {
+                      *eq = 0;
+                      m_config[std::string(line)]=std::string(eq+1);
+                    }
+                }
+            }
+          free(s);
+        }
+      
+      f.close();
+    }
+
+  if( !ok )
+    {
+      m_config.clear();
+      m_config["Device"] = std::to_string(m_devnr);
+      writeConfig();
+    }
+}
+
+
+void IECSidekick64::writeConfig()
+{
+  File f = LittleFS.open("/" CONFIGFILENAME, "w");
+  if( f )
+    {
+      for(const std::pair<const std::string, std::string>&cfg : m_config)
+        {
+          std::string line = cfg.first + "=" + cfg.second + "\n";
+          f.write((uint8_t *) line.c_str(), line.length());
+        }
+      f.close();
+    }
+}
+
+
 uint8_t IECSidekick64::openDir()
 {
   m_dir = LittleFS.openDir("/");
@@ -101,7 +170,7 @@ uint8_t IECSidekick64::openDir()
   strcpy(m_dirBuffer+8, "SIDEKICK64");
   size_t n = strlen(m_dirBuffer+8);
   while( n<16 ) { m_dirBuffer[8+n] = ' '; n++; }
-  strcpy_P(m_dirBuffer+24, PSTR("\" 00 2A"));
+  strcpy(m_dirBuffer+24, "\" 00 2A");
   m_dirBufferLen = 32;
   m_dirBufferPtr = 0;
   
@@ -119,7 +188,10 @@ bool IECSidekick64::readDir(uint8_t *data)
           m_dirBufferPtr = 0;
           m_dirBufferLen = 0;
 
-          if( m_dir.next() )
+          bool ok = m_dir.next();
+          if( m_dir.fileName()==CONFIGFILENAME ) ok = m_dir.next();
+
+          if( ok )
             {
               uint16_t size = m_dir.fileSize()==0 ? 0 : min(m_dir.fileSize()/254+1, 9999);
               m_dirBuffer[m_dirBufferLen++] = 1;
@@ -153,7 +225,7 @@ bool IECSidekick64::readDir(uint8_t *data)
                   m_dirBufferLen += strlen(m_dirBuffer+m_dirBufferLen);
                   n = 17-n;
                   while(n-->0) m_dirBuffer[m_dirBufferLen++] = ' ';
-                  strcpy_P(m_dirBuffer+m_dirBufferLen, ftype!=NULL ? ftype : (m_dir.isDirectory() ? "DIR" : "PRG"));
+                  strcpy(m_dirBuffer+m_dirBufferLen, ftype!=NULL ? ftype : (m_dir.isDirectory() ? "DIR" : "PRG"));
                   m_dirBufferLen+=3;
                   while( m_dirBufferLen<31 ) m_dirBuffer[m_dirBufferLen++] = ' ';
                   m_dirBuffer[m_dirBufferLen++] = 0;
@@ -170,7 +242,7 @@ bool IECSidekick64::readDir(uint8_t *data)
               m_dirBuffer[1] = 1;
               m_dirBuffer[2] = free&255;
               m_dirBuffer[3] = free/256;
-              strcpy_P(m_dirBuffer+4, PSTR("BLOCKS FREE.             "));
+              strcpy(m_dirBuffer+4, "BLOCKS FREE.             ");
               m_dirBuffer[29] = 0;
               m_dirBuffer[30] = 0;
               m_dirBuffer[31] = 0;
@@ -201,9 +273,9 @@ bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t extma
         found = 1;
       else if( pattern[i]==0 && name[i]=='.' )
         {
-          if( (extmatch & 1) && strcasecmp_P(name+i+1, PSTR("prg"))==0 )
+          if( (extmatch & 1) && strcasecmp(name+i+1, "prg")==0 )
             found = 1;
-          else if( (extmatch & 2) && strcasecmp_P(name+i+1, PSTR("seq"))==0 )
+          else if( (extmatch & 2) && strcasecmp(name+i+1, "seq")==0 )
             found = 1;
           else
             found = 0;
@@ -225,10 +297,11 @@ const char *IECSidekick64::findFile(const char *pattern, char ftype)
 
   m_dir = LittleFS.openDir("/");
   while( !found && m_dir.next() )
-    {
-      strcpy(name, m_dir.fileName().substring(0,21).c_str());
-      found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2);
-    }
+    if( m_dir.fileName()!=CONFIGFILENAME || m_dir.next() )
+      {
+        strcpy(name, m_dir.fileName().substring(0,21).c_str());
+        found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2);
+      }
 
   return found ? name : NULL;
 }
@@ -278,8 +351,10 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
     {
       if( mode=='R' )
         {
+          if( strcmp(name, CONFIGFILENAME)==0 )
+            return E_NOTFOUND;
+          
           if( name[0]==':' ) name++;
-
           m_file = LittleFS.open(name, "r");
           if( !m_file )
             {
@@ -292,6 +367,9 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
         }
       else
         {
+          if( strcmp(name, CONFIGFILENAME)==0 )
+            return E_WRITEPROT;
+
           bool overwrite = false;
           if( name[0]=='@' && name[1]==':' )
             { name+=2; overwrite = true; }
@@ -305,7 +383,6 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
           if( overwrite && findFile(name, '\0')!=NULL )
             LittleFS.remove(name);
           
-          //strcat_P(name, ftype=='P' ? PSTR(".prg") : PSTR(".seq"));
           if( !overwrite && LittleFS.exists(name) )
             res = E_EXISTS;
           else 
@@ -322,9 +399,7 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
 
 bool IECSidekick64::open(uint8_t channel, const char *name)
 {
-  if( !checkCard() )
-    m_errorCode = E_NOTREADY;
-  else if( m_drive->isOk() )
+  if( m_drive->isOk() )
     m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
   else if( channel==0 && name[0]=='$' )
     m_errorCode = openDir();
@@ -404,7 +479,24 @@ void IECSidekick64::execute(const char *command, uint8_t len)
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
   digitalWrite(m_pinLED, HIGH);
-  if( m_drive->isOk() )
+  if( command[0]=='X' || command[0]=='E' )
+    {
+      if( isdigit(command[1]) )
+        {
+          int d = atoi(command+1);
+          if( d>=4 && d<=15 )
+            {
+              setConfigValue("Device", std::to_string(d));
+              setDeviceNumber(d);
+              m_errorCode = E_OK;
+            }
+          else
+            m_errorCode = E_INVCMD;
+        }
+      else
+        m_errorCode = E_INVCMD;
+    }
+  else if( m_drive->isOk() )
     {
       if( strcmp(command, "CD:..")==0 || strcmp(command, "CD_")==0 )
         { 
@@ -473,7 +565,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
             m_errorCode = E_INVNAME;
         }
     }
-  else if( strncmp_P(command, PSTR("M-R\xfa\x02\x03"), 6)==0 )
+  else if( strncmp(command, "M-R\xfa\x02\x03", 6)==0 )
     {
       // hack: DolphinDos' MultiDubTwo reads 02FA-02FC to determine
       // number of free blocks => pretend we have 664 (0298h) blocks available
@@ -481,7 +573,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       setStatus((char *) data, 3);
       m_errorCode = E_OK;
     }
-  else if( strncmp_P(command, PSTR("M-R"), 3)==0 && len>=6 && command[5]<=32 )
+  else if( strncmp(command, "M-R", 3)==0 && len>=6 && command[5]<=32 )
     {
       // memory read not supported => always return 0xFF
       uint8_t n = command[5];
@@ -490,40 +582,19 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       setStatus(buf, n);
       m_errorCode = E_OK;
     }
-  else if( strncmp_P(command, PSTR("M-W"), 3)==0 )
+  else if( strncmp(command, "M-W", 3)==0 )
     {
       // memory write not supported => ignore
       m_errorCode = E_OK;
     }
-  else if( strncmp_P(command, PSTR("CD:"),3)==0 )
+  else if( strncmp(command, "CD:",3)==0 )
     {
       strncpy(m_dirBuffer, command+3, IEC_BUFSIZE);
       m_dirBuffer[IEC_BUFSIZE-1]=0;
       m_errorCode = m_drive->openDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
     }
-  else if( strcmp(command, "I")==0 || strcmp_P(command, PSTR("X+\x0dUJ"))==0 )
+  else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
     m_errorCode = E_OK;
-  else if( command[0]=='X' || command[0]=='E' )
-    {
-      command++;
-      if( command[0]>='1' && command[0]<='9' )
-        {
-          const char *c = command;
-          uint8_t devnr = *c++ - '0';
-          if( *c>='0' && *c<='9' ) devnr = devnr*10 + *c++ - '0';
-          if( *c!=0 ) devnr = 0;
-
-          if( devnr>2 && devnr<16 )
-            {
-              m_devnr = devnr;
-              m_errorCode = E_OK;
-            }
-          else
-            m_errorCode = E_INVCMD;
-        }
-      else
-        m_errorCode = E_INVCMD;
-    }
   else
     m_errorCode = E_INVCMD;
 
@@ -544,33 +615,33 @@ void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
   const char *message = NULL;
   switch( m_errorCode )
     {
-    case E_OK:                   { message = PSTR(" OK"); break; }
-    case E_READ:                 { message = PSTR("READ ERROR"); break; }
-    case E_WRITE:                { message = PSTR("WRITE ERROR"); break; }
-    case E_SCRATCHED:            { message = PSTR("FILES SCRATCHED"); break; }
-    case E_NOTREADY:             { message = PSTR("DRIVE NOT READY"); break; }
-    case E_NOTFOUND:             { message = PSTR("FILE NOT FOUND"); break; }
-    case E_EXISTS:               { message = PSTR("FILE EXISTS"); break; }
+    case E_OK:                   { message = " OK"; break; }
+    case E_READ:                 { message = "READ ERROR"; break; }
+    case E_WRITEPROT:            { message = "WRITE PROTECT ON"; break; }
+    case E_WRITE:                { message = "WRITE ERROR"; break; }
+    case E_SCRATCHED:            { message = "FILES SCRATCHED"; break; }
+    case E_NOTREADY:             { message = "DRIVE NOT READY"; break; }
+    case E_NOTFOUND:             { message = "FILE NOT FOUND"; break; }
+    case E_EXISTS:               { message = "FILE EXISTS"; break; }
     case E_INVCMD:
-    case E_INVNAME:              { message = PSTR("SYNTAX ERROR"); break; }
-    case E_TOOMANY:              { message = PSTR("TOO MANY OPEN FILES"); break; }
-    case E_SPLASH:               { message = PSTR("IEC-SIDEKICK64 V0.1"); break; }
-    default:                     { message = PSTR("UNKNOWN"); break; }
+    case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
+    case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
+    case E_SPLASH:               { message = "IEC-SIDEKICK64 V0.1"; break; }
+    default:                     { message = "UNKNOWN"; break; }
     }
 
   uint8_t i = 0;
   buffer[i++] = '0' + (m_errorCode / 10);
   buffer[i++] = '0' + (m_errorCode % 10);
   buffer[i++] = ',';
-  strcpy_P(buffer+i, message);
-  i += strlen_P(message);
+  strcpy(buffer+i, message);
+  i += strlen(message);
 
   if( m_errorCode!=E_SCRATCHED ) m_scratched = 0;
   buffer[i++] = ',';
   buffer[i++] = '0' + (m_scratched / 10);
   buffer[i++] = '0' + (m_scratched % 10);
-  strcpy_P(buffer+i, PSTR(",00\r"));
-
+  strcpy(buffer+i, ",00\r");
 
   m_errorCode = E_OK;
 }
@@ -585,7 +656,6 @@ void IECSidekick64::reset()
 
   m_errorCode = E_SPLASH;
   m_drive->closeAllChannels();
-  if( !checkCard() ) m_errorCode = E_NOTREADY;
 
   m_file.close();
   m_dirOpen = false;
