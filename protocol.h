@@ -5,6 +5,12 @@
 #define CMD_PUTFILE          3
 #define CMD_DRIVESTATUS      4
 #define CMD_DRIVECMD         5
+#define CMD_MOUNT            6
+#define CMD_UNMOUNT          7
+#define CMD_GET_MOUNTED      8
+#define CMD_SET_PLAYLIST     9
+#define CMD_GET_PLAYLIST    10
+#define CMD_ADV_PLAYLIST    11
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0
@@ -18,6 +24,9 @@
 #define ST_INVALID_DATA      8
 #define ST_TIMEOUT           9
 #define ST_CHECKSUM_ERROR   10
+#define ST_FILE_EXISTS      11
+#define ST_FILE_NOT_FOUND   12
+#define ST_NOT_MOUNTED      13
 #define ST_COM_ERROR        -1
 
 #define FF_MODIFIED         0x00000001
@@ -35,18 +44,21 @@ const char *get_status_msg(StatusType status)
   switch( status )
     {
     case ST_OK:               return "OK";
-    case ST_INVALID_COMMAND:  return "INVALID_COMMAND";
-    case ST_INVALID_DIR:      return "INVALID_DIR";
-    case ST_INVALID_FILE:     return "INVALID_FILE";
-    case ST_INVALID_LENGTH:   return "INVALID_LENGTH";
-    case ST_DRIVE_FULL:       return "DRIVE_FULL";
-    case ST_READ_ERROR:       return "READ_ERROR";
-    case ST_WRITE_ERROR:      return "WRITE_ERROR";
-    case ST_INVALID_DATA:     return "INVALID_DATA";
+    case ST_INVALID_COMMAND:  return "INVALID COMMAND";
+    case ST_INVALID_DIR:      return "INVALID DIR";
+    case ST_INVALID_FILE:     return "INVALID FILE";
+    case ST_INVALID_LENGTH:   return "INVALID LENGTH";
+    case ST_DRIVE_FULL:       return "DRIVE FULL";
+    case ST_READ_ERROR:       return "READ ERROR";
+    case ST_WRITE_ERROR:      return "WRITE ERROR";
+    case ST_INVALID_DATA:     return "INVALID DATA";
     case ST_TIMEOUT:          return "TIMEOUT";
-    case ST_CHECKSUM_ERROR:   return "ST_CHECKSUM_ERROR";
+    case ST_CHECKSUM_ERROR:   return "CHECKSUM ERROR";
+    case ST_FILE_EXISTS:      return "FILE EXISTS";
+    case ST_FILE_NOT_FOUND:   return "FILE NOT FOUND";
+    case ST_NOT_MOUNTED:      return "NO IMAGE MOUNTED";
 
-    case ST_COM_ERROR:        return "COM_ERROR";
+    case ST_COM_ERROR:        return "COM ERROR";
 
     default:
       {

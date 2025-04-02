@@ -20,6 +20,9 @@ class VDrive
   // to interact with the file system
   bool openDiskImage(const char *filename, bool readOnly = false);
 
+  // returns the filename of the currently open disk image (NULL if nothing opened)
+  const char *getDiskImageFilename();
+
   // close the disk image currently in use
   void closeDiskImage();
 
@@ -73,6 +76,14 @@ class VDrive
   // copies the contents of the drive's status buffer to "buf", not exceeding
   // the given bufSize length.
   size_t getStatusBuffer(void *buf, size_t bufSize);
+
+  // read sector data from the disk image and place it in "buf"
+  // "buf" must have a size of at least 256 bytes
+  bool readSector(uint32_t track, uint32_t sector, uint8_t *buf);
+
+  // write data from "buf" into a sector on the disk image
+  // "buf" must have a size of at least 256 bytes
+  bool writeSector(uint32_t track, uint32_t sector, const uint8_t *buf);
 
   // create and optionally format a new disk image. Parameters
   // - filename: name of the created image file on the host file system, required

@@ -154,6 +154,36 @@ void IECSidekick64::writeConfig()
 }
 
 
+#if defined(SUPPORT_EPYX) && defined(SUPPORT_EPYX_SECTOROPS)
+bool IECSidekick64::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+{
+  bool res = false;
+
+  if( m_drive->isOk() )
+    res = m_drive->readSector(track, sector, buffer);
+
+  // for debug log
+  if( res ) IECFileDevice::epyxReadSector(track, sector, buffer);
+
+  return res;
+}
+
+
+bool IECSidekick64::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+{
+  bool res = false;
+
+  // for debug log
+  IECFileDevice::epyxWriteSector(track, sector, buffer);
+
+  if( m_drive->isOk() )
+    res = m_drive->writeSector(track, sector, buffer);
+
+  return res;
+}
+#endif
+
+
 uint8_t IECSidekick64::openDir()
 {
   m_dir = LittleFS.openDir("/");
@@ -644,6 +674,26 @@ void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
   strcpy(buffer+i, ",00\r");
 
   m_errorCode = E_OK;
+}
+
+
+void IECSidekick64::unmountDiskImage()
+{
+  if( m_drive->isOk() )
+    m_drive->closeDiskImage(); 
+}
+
+
+bool IECSidekick64::mountDiskImage(const char *name)
+{
+  unmountDiskImage();
+  return m_drive->openDiskImage(name);
+}
+
+
+const char *IECSidekick64::getMountedImageName()
+{
+  return m_drive->getDiskImageFilename();
 }
 
 

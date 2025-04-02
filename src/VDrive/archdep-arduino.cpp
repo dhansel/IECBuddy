@@ -24,8 +24,9 @@ extern "C"
 #endif
 
 #define F_WRITEMODE   0x01
-#define F_CANTBUFFER  0x02
-#define F_CANTWRITE   0x04
+#define F_INBUFFER    0x02
+#define F_CANTBUFFER  0x04
+#define F_CANTWRITE   0x08
 
 
 static uint32_t getTotalHeap()
@@ -47,43 +48,48 @@ static uint32_t getAvailableHeap()
 }
 
 
-static File     s_lfsFile;
-static uint8_t  s_lfsFileFlags = 0;
+#define MAXFILES 3
+static File     s_lfsFiles[MAXFILES];
+static uint8_t  s_lfsFilesFlags[MAXFILES];
 static uint8_t *s_imageData = NULL;
 static uint32_t s_imageDataSize = 0, s_imageDataPos = 0;
 static uint32_t s_imageDataMinWritePos = 0, s_imageDataMaxWritePos = 0;
 
-
-void archdep_flush()
+void archdep_flush_memcache(ADFILE *f)
 {
-  if( s_lfsFile && (s_imageData!=NULL) && (s_imageDataMinWritePos<s_imageDataMaxWritePos) )
+  int fidx = ((int) f)-1;
+
+  if( fidx<0 || fidx>MAXFILES || !s_lfsFiles[fidx] )
+    return;
+
+  if( (s_imageData!=NULL) && (s_imageDataMinWritePos<s_imageDataMaxWritePos) )
     {
       uint32_t n = s_imageDataMaxWritePos-s_imageDataMinWritePos;
       DBG(("archdep_flush: writing memory data (offset %u, size %u) back to file '%s'...", 
-           s_imageDataMinWritePos, n, s_lfsFile.fullName()));
-      char *name = strdup(s_lfsFile.fullName());
+           s_imageDataMinWritePos, n, s_lfsFiles[fidx].fullName()));
+      char *name = strdup(s_lfsFiles[fidx].fullName());
 
-      s_lfsFile.close();
+      s_lfsFiles[fidx].close();
 
       bool ok = false;
       struct FSInfo info;
-      if( LittleFS.info(info) && s_lfsFile.size() < (info.totalBytes-info.usedBytes-6*info.blockSize) )
+      if( LittleFS.info(info) && s_lfsFiles[fidx].size() < (info.totalBytes-info.usedBytes-6*info.blockSize) )
         {
           // we have enough space for LittleFS to write a new copy and then delete the old
           // so we can proceed with only writing the modified part
-          s_lfsFile = LittleFS.open(name, "r+");
-          s_lfsFile.seek(s_imageDataMinWritePos, SeekSet);
-          ok = s_lfsFile && s_lfsFile.write(s_imageData+s_imageDataMinWritePos, n);
-          if( ok ) s_lfsFile.flush();
+          s_lfsFiles[fidx] = LittleFS.open(name, "r+");
+          s_lfsFiles[fidx].seek(s_imageDataMinWritePos, SeekSet);
+          ok = s_lfsFiles[fidx] && s_lfsFiles[fidx].write(s_imageData+s_imageDataMinWritePos, n);
+          if( ok ) s_lfsFiles[fidx].flush();
         }
       else
         {
           // not enough space on file system to do a partial rewrite (LittleFS first writes
           // the new file and then deletes the old) => rewrite the whole file
-          s_lfsFile = LittleFS.open(name, "w");
-          ok = s_lfsFile.write(s_imageData, s_imageDataSize);
-          s_lfsFile.close();
-          s_lfsFile = LittleFS.open(name, "r");
+          s_lfsFiles[fidx] = LittleFS.open(name, "w");
+          ok = s_lfsFiles[fidx].write(s_imageData, s_imageDataSize);
+          s_lfsFiles[fidx].close();
+          s_lfsFiles[fidx] = LittleFS.open(name, "r");
         }
 
       if( ok )
@@ -97,133 +103,161 @@ void archdep_flush()
       
       free(name);
     }
-  else if( s_lfsFile && (s_lfsFileFlags & (F_CANTBUFFER|F_CANTWRITE))==F_CANTBUFFER )
+  else if( (s_lfsFilesFlags[fidx] & (F_CANTBUFFER|F_CANTWRITE))==F_CANTBUFFER )
     {
-      DBG(("archdep_flush: flushing file '%s'...", s_lfsFile.fullName()));
-      s_lfsFile.flush();
+      DBG(("archdep_flush: flushing file '%s'...", s_lfsFiles[fidx].fullName()));
+      s_lfsFiles[fidx].flush();
       DBG(("DONE\n", 0));
     }
 }
 
 
-static ADFILE *newFile(const char *filename)
+static ADFILE *newFile(const char *filename, const char *mode)
 {
-  if( s_lfsFile )
-    return NULL; // a file is already open
-  else
+  int fidx = 0;
+  for(fidx=0; fidx<MAXFILES; fidx++)
+    if( !s_lfsFiles[fidx] )
+      break;
+
+  if( fidx >= MAXFILES )
+    return NULL; // cannot open another file
+  else if( mode[0]=='r' )
     {
-      s_lfsFile = LittleFS.open(filename, "r");
-      s_lfsFileFlags = 0;
-      return (bool) s_lfsFile ? (ADFILE *) 1 : NULL;
+      s_lfsFiles[fidx] = LittleFS.open(filename, "r");
+      s_lfsFilesFlags[fidx] = 0;
     }
+  else if( mode[0]=='w' )
+    {
+      s_lfsFiles[fidx] = LittleFS.open(filename, "w");
+      s_lfsFilesFlags[fidx] = F_CANTBUFFER|F_WRITEMODE;
+    }
+
+  return ((bool) s_lfsFiles[fidx]) ? (ADFILE *) (fidx+1) : NULL;
 }
 
 
 static void closeFile(ADFILE *f)
 {
-  if( s_lfsFile )
+  int fidx = ((int) f)-1;
+  if( fidx<0 || fidx>=MAXFILES || !s_lfsFiles[fidx] )
+    return;
+
+  if( s_imageData!=NULL )
     {
-      if( s_imageData!=NULL )
-        {
-          archdep_flush();
-          free(s_imageData);
-          s_imageData = NULL;
-        }
-      
-      s_lfsFile.close();
-      s_lfsFileFlags = 0;
+      archdep_flush_memcache(f);
+      free(s_imageData);
+      s_imageData = NULL;
     }
+  
+  s_lfsFiles[fidx].close();
+  s_lfsFilesFlags[fidx] = 0;
 }
 
 
 static bool isFileInBuffer(ADFILE *f)
 {
-  return s_lfsFile && s_imageData!=NULL;
+  int fidx = ((int) f)-1;
+  if( fidx<0 || fidx>=MAXFILES )
+    return false;
+  else
+    return s_lfsFiles[fidx] && (s_lfsFilesFlags[fidx]&F_INBUFFER)!=0 &&  s_imageData!=NULL;
 }
 
 
-static File &getFile(ADFILE *f, bool write = false)
+uint8_t getFileFlags(ADFILE *f)
 {
-  if( f==NULL )
-    return s_lfsFile;
+  int fidx = ((int) f)-1;
+  if( fidx>=0 || fidx<MAXFILES )
+    return s_lfsFilesFlags[fidx];
   else
+    return 0;
+}
+
+
+File getFile(ADFILE *f, bool write = false)
+{
+  File file;
+  int fidx = ((int) f)-1;
+  if( fidx>=0 || fidx<MAXFILES )
+    file = s_lfsFiles[fidx];
+
+  if( file && write && (s_imageData==NULL) && (s_lfsFilesFlags[fidx] & F_CANTBUFFER)==0 )
     {
-      if( write && (s_imageData==NULL) && (s_lfsFileFlags & F_CANTBUFFER)==0 )
-        {
-          size_t pos  = s_lfsFile.position();
-          s_lfsFile.seek(0, SeekEnd);
-          size_t size = s_lfsFile.size();
+      File file = s_lfsFiles[fidx];
+      size_t pos  = file.position();
+      file.seek(0, SeekEnd);
+      size_t size = file.size();
 #if 0
-          DBG(("\nHeap total : %u", getTotalHeap()));
-          DBG(("\nHeap used  : %u", getUsedHeap()));
-          DBG(("\nHeap avail : %u", getAvailableHeap()));
+      DBG(("\nHeap total : %u", getTotalHeap()));
+      DBG(("\nHeap used  : %u", getUsedHeap()));
+      DBG(("\nHeap avail : %u", getAvailableHeap()));
 #endif
-
-          s_imageData = (uint8_t *) malloc(size);
-          if( s_imageData!=NULL )
-            {
-              DBG(("\ngetFile: loading file '%s' of size %u into memory...", s_lfsFile.fullName(), size));
-              s_lfsFile.seek(0, SeekSet);
-              if( s_lfsFile.read(s_imageData, size)==size )
-                {
-                  DBG(("DONE", 0));
-                  s_imageDataPos = pos;
-                  s_imageDataSize = size;
-                  s_imageDataMinWritePos = size;
-                  s_imageDataMaxWritePos = 0;
-                }
-              else
-                {
-                  DBG(("FAILED", 0));
-                  s_lfsFile.seek(pos, SeekSet);
-                  free(s_imageData);
-                  s_imageData=NULL;
-                  s_lfsFileFlags |= F_CANTBUFFER;
-                }
-            }
-          else
-            {
-              DBG(("\ngetFile: file '%s' of size %u can't fit into memory (heap available=%u)", s_lfsFile.fullName(), size, getAvailableHeap()));
-              s_lfsFileFlags |= F_CANTBUFFER;
-              s_lfsFile.seek(pos, SeekSet);
-            }
-        }
-
-      if( write && (s_imageData==NULL) && (s_lfsFileFlags & (F_WRITEMODE|F_CANTWRITE))==0 )
-        {
-          size_t pos = s_lfsFile.position();
-          char *name = strdup(s_lfsFile.fullName());
-
-          struct FSInfo info;
-#if 0
-          LittleFS.info(info);
-          DBG(( "\nblockSize=%lu pageSize=%lu totalBytes=%llu usedBytes=%llu freeBytes=%llu fileSize=%u",
-                info.blockSize, info.pageSize, info.totalBytes, info.usedBytes, info.totalBytes-info.usedBytes, s_lfsFile.size()));
-#endif
-          // according to https://github.com/littlefs-project/littlefs/issues/533
-          // LittleFS requires ~6 blocks of free storage space to work with
-          if( LittleFS.info(info) && s_lfsFile.size() < (info.totalBytes-info.usedBytes-6*info.blockSize) )
-            {
-              DBG(("\ngetFile: reopen '%s' for writing at position %u\n", name, pos));
-              // open again for writing now
-              s_lfsFile.close();
-              s_lfsFile = LittleFS.open(name, "r+");
-              if( !s_lfsFile ) DBG(("  ERROR  ", 0));
-              s_lfsFile.seek(pos, SeekSet);
-              s_lfsFileFlags |= F_WRITEMODE;
-            }
-          else
-            {
-              DBG(("\ngetFile: cannot reopen file '%s' of size %u for writing (filesys available=%llu, need %u)",
-                   name, s_lfsFile.size(), info.totalBytes-info.usedBytes, s_lfsFile.size()+6*info.blockSize));
-              s_lfsFileFlags |= F_CANTWRITE;
-            }
-          
-          free(name);
-        }
       
-      return s_lfsFile;
+      s_imageData = (uint8_t *) malloc(size);
+      if( s_imageData!=NULL )
+        {
+          DBG(("\ngetFile: loading file '%s' of size %u into memory...", file.fullName(), size));
+          file.seek(0, SeekSet);
+          if( file.read(s_imageData, size)==size )
+            {
+              DBG(("DONE", 0));
+              s_imageDataPos = pos;
+              s_imageDataSize = size;
+              s_imageDataMinWritePos = size;
+              s_imageDataMaxWritePos = 0;
+              s_lfsFilesFlags[fidx] |= F_INBUFFER;
+            }
+          else
+            {
+              DBG(("FAILED", 0));
+              file.seek(pos, SeekSet);
+              free(s_imageData);
+              s_imageData=NULL;
+              s_lfsFilesFlags[fidx] |= F_CANTBUFFER;
+            }
+        }
+      else
+        {
+          DBG(("\ngetFile: file '%s' of size %u can't fit into memory (heap available=%u)", file.fullName(), size, getAvailableHeap()));
+          s_lfsFilesFlags[fidx] |= F_CANTBUFFER;
+          file.seek(pos, SeekSet);
+        }
     }
+
+  if( file && write && (s_imageData==NULL) && (s_lfsFilesFlags[fidx] & (F_WRITEMODE|F_CANTWRITE))==0 )
+    {
+      size_t pos = file.position();
+      char *name = strdup(file.fullName());
+
+      struct FSInfo info;
+#if 0
+      LittleFS.info(info);
+      DBG(( "\nblockSize=%lu pageSize=%lu totalBytes=%llu usedBytes=%llu freeBytes=%llu fileSize=%u",
+            info.blockSize, info.pageSize, info.totalBytes, info.usedBytes, info.totalBytes-info.usedBytes, file.size()));
+#endif
+      // according to https://github.com/littlefs-project/littlefs/issues/533
+      // LittleFS requires ~6 blocks of free storage space to work with
+      if( LittleFS.info(info) && file.size() < (info.totalBytes-info.usedBytes-6*info.blockSize) )
+        {
+          DBG(("\ngetFile: reopen '%s' for writing at position %u\n", name, pos));
+          // open again for writing now
+          file.close();
+          file = LittleFS.open(name, "r+");
+          if( !file ) DBG(("  ERROR  ", 0));
+          file.seek(pos, SeekSet);
+          s_lfsFilesFlags[fidx] |= F_WRITEMODE;
+        }
+      else
+        {
+          DBG(("\ngetFile: cannot reopen file '%s' of size %u for writing (filesys available=%llu, need %u)",
+               name, file.size(), info.totalBytes-info.usedBytes, file.size()+6*info.blockSize));
+          s_lfsFilesFlags[fidx] |= F_CANTWRITE;
+        }
+          
+      free(name);
+    }
+      
+  return file;
 }
 
 
@@ -372,9 +406,9 @@ ADFILE *archdep_fnofile()
 ADFILE *archdep_fopen(const char* filename, const char* mode)
 {
   ADFILE *res = NULL;
-  DBG(("archdep_fopen: %s", filename));
-  res = newFile(filename);
-  DBG(("=> %p\n", res));
+  DBG(("archdep_fopen: %s %s", filename, mode));
+  res = newFile(filename, mode);
+  DBG((" => %p\n", res));
   return res;
 }
 
@@ -430,7 +464,7 @@ size_t archdep_fwrite(const void* buffer, size_t size, size_t count, ADFILE *str
       s_imageDataPos += n;
       s_imageDataMaxWritePos = max(s_imageDataMaxWritePos, s_imageDataPos);
     }
-  else if( f && (s_lfsFileFlags&F_CANTWRITE)==0 )
+  else if( f && (getFileFlags(stream)&F_CANTWRITE)==0 )
     n = f.write((const uint8_t *) buffer, size*count);
 
   DBG(("=> %u %u\n", n, n/size));
@@ -489,12 +523,14 @@ int archdep_fseek(ADFILE *stream, long int offset, int whence)
 
 int archdep_fflush(ADFILE *stream)
 {
+  DBG(("archdep_fflush: %p\n", stream));
   return 0;
 }
 
 
 void archdep_frewind(ADFILE *file)
 {
+  DBG(("archdep_frewind: %p\n", file));
   archdep_fseek(file, 0, SEEK_SET);
 }
 
@@ -513,7 +549,7 @@ int archdep_fissame(ADFILE *file1, ADFILE *file2)
 
 int archdep_ferror(ADFILE *file)
 {
-  int res = (s_lfsFileFlags & F_CANTWRITE) ? 1 : 0;
+  int res = (getFileFlags(file) & F_CANTWRITE) ? 1 : 0;
   DBG(("archdep_ferror: %p %i\n", file, res));
   return res;
 }

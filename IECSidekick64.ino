@@ -302,13 +302,23 @@ void receiveFile()
         if( !recv_uint(length) )
           status = ST_COM_ERROR;
 
-      // check available space
-      // according to https://github.com/littlefs-project/littlefs/issues/533
-      // LittleFS requires ~6 blocks of free storage space to work with
-      struct FSInfo info;
-      LittleFS.info(info);
-      if( length > info.totalBytes-info.usedBytes-6*info.blockSize )
-        status = ST_DRIVE_FULL;
+      if( status==ST_OK )
+        {
+          // check whether a file with this name already exists
+          if( LittleFS.exists(fileName.c_str()) )
+            status = ST_FILE_EXISTS;
+        }
+
+      if( status==ST_OK )
+        {
+          // check available space
+          // according to https://github.com/littlefs-project/littlefs/issues/533
+          // LittleFS requires ~6 blocks of free storage space to work with
+          struct FSInfo info;
+          LittleFS.info(info);
+          if( length > info.totalBytes-info.usedBytes-6*info.blockSize )
+            status = ST_DRIVE_FULL;
+        }
 
 #if DEBUG>0
       Serial1.printf(" name=%s, length=%u ", fileName.c_str(), length);
@@ -387,6 +397,41 @@ void receiveFile()
 }
 
 
+void mountDiskImage()
+{
+  string fileName;
+
+  // receive image name
+  if( recv_string(fileName) )
+    {
+      StatusType status = ST_OK;
+
+      // check whether a file with this name exists
+      if( LittleFS.exists(fileName.c_str()) )
+        status = iecDrive.mountDiskImage(fileName.c_str()) ? ST_OK : ST_INVALID_FILE;
+      else
+        status = ST_FILE_NOT_FOUND;
+      
+      send_status(status);
+    }
+}
+
+
+void unmountDiskImage()
+{
+  iecDrive.unmountDiskImage();
+  send_status(ST_OK);
+}
+
+
+void getMountedDiskImage()
+{
+  const char *filename = iecDrive.getMountedImageName();
+  send_string(filename ? filename : "");
+}
+
+
+
 void execCmd(CommandType cmd)
 {
   switch( cmd )
@@ -396,6 +441,9 @@ void execCmd(CommandType cmd)
     case CMD_PUTFILE:     receiveFile(); break;
     case CMD_DRIVESTATUS: sendDriveStatus(); break;
     case CMD_DRIVECMD:    execDriveCommand(); break;
+    case CMD_MOUNT:       mountDiskImage(); break;
+    case CMD_UNMOUNT:     unmountDiskImage(); break;
+    case CMD_GET_MOUNTED: getMountedDiskImage(); break;
 
     default: 
       {

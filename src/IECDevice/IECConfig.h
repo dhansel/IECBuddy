@@ -34,11 +34,11 @@
 // at least 256 bytes. Note that the "bufferSize" argument is a byte and therefore
 // capped at 255 bytes. Make sure the buffer itself has >=256 bytes and use a 
 // bufferSize argument of 255 or less
-//#define SUPPORT_EPYX_SECTOROPS
+#define SUPPORT_EPYX_SECTOROPS
 
 // defines the maximum number of devices that the bus handler will be
 // able to support - set to 4 by default but can be increased to up to 30 devices
-#define MAX_DEVICES 4
+#define MAX_DEVICES 1
 
 // sets the default size of the fastload buffer. If this is set to 0 then fastload
 // protocols can only be used if the IECBusHandler::setBuffer() function is
@@ -52,12 +52,12 @@
 // For other channels, the device's write() function will be called once the
 // buffer is full. Every instance of IECFileDevice will allocate this buffer
 // so it should be kept small on platforms with little RAM (e.g. Arduino UNO)
-#define IECFILEDEVICE_WRITE_BUFFER_SIZE   64
+#define IECFILEDEVICE_WRITE_BUFFER_SIZE  128
 
 // buffer size for IECFileDevice transmitting data on channel 15, if
 // IECFileDevice::setStatus() is called with data longer than this it will be clipped.
 // every instance of IECFileDevice will allocate this buffer so it should be
 // kept small on platforms with little RAM (e.g. Arduino UNO)
-#define IECFILEDEVICE_STATUS_BUFFER_SIZE 40
+#define IECFILEDEVICE_STATUS_BUFFER_SIZE 128
 
 #endif

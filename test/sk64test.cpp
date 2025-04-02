@@ -84,11 +84,13 @@ bool send_data(uint32_t length, const uint8_t *buffer)
 bool recv_data(uint32_t length, uint8_t *buffer)
 {
   uint32_t n = 0;
-  while( n==0 ) 
-    { 
-      n = com.Read((char *) buffer, (long) length) ? length : 0;
-      if( n==0 ) Sleep(10);
-    }
+
+  if( length>0 )
+    while( n==0 ) 
+      { 
+        n = com.Read((char *) buffer, (long) length) ? length : 0;
+        if( n==0 ) Sleep(10);
+      }
 
 #if DEBUG>=2
   if( n!=length )
@@ -376,6 +378,76 @@ StatusType getFile(const string &fname)
 }
 
 
+StatusType mountDisk(const string &name)
+{
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_MOUNT) )
+      status = ST_COM_ERROR;
+
+  // send image name
+  if( status==ST_OK )
+    if( !send_string(toPETSCII(name)) )
+      status = ST_COM_ERROR;
+  
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+  
+  return status;
+}
+
+
+StatusType unmountDisk()
+{
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_UNMOUNT) )
+      status = ST_COM_ERROR;
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+  
+  return status;
+}
+
+
+StatusType getMountedDisk()
+{
+  string name;
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_GET_MOUNTED) )
+      status = ST_COM_ERROR;
+
+  // receive image name
+  if( status==ST_OK )
+    {
+      if( recv_string(name) )
+        name = fromPETSCII(name);
+      else
+        status = ST_COM_ERROR;
+    }
+  
+  if( status==ST_OK )
+    {
+      if( name.empty() )
+        status = ST_NOT_MOUNTED;
+      else
+        printf("Currently mounted disk image: %s\n", name.c_str());
+    }
+
+  return status;
+}
+
+
 // ------------------ main function -----------------
 
 
@@ -404,6 +476,18 @@ void execCommand(string cmd)
       string drivestatus;
       status = getDriveStatus(drivestatus);
       if( status==ST_OK ) printf("drive status: %s\n", drivestatus.c_str());
+    }
+  else if( cmd.substr(0, 6)=="mount " )
+    {
+      status = mountDisk(cmd.substr(6));
+    }
+  else if( cmd=="unmount" )
+    {
+      status = unmountDisk();
+    }
+  else if( cmd=="getmounted" )
+    {
+      status = getMountedDisk();
     }
   else
     {

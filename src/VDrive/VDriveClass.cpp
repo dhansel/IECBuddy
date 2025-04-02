@@ -2,6 +2,7 @@
 
 extern "C" 
 {
+#include "archdep.h"
 #include "util.h"
 #include "charset.h"
 #include "vdrive.h"
@@ -11,6 +12,7 @@ extern "C"
 #include "diskimage.h"
 #include "diskcontents-block.h"
 #include "imagecontents.h"
+#include "fsimage.h"
 }
 
 
@@ -165,6 +167,14 @@ bool VDrive::createDiskImage(const char *filename, const char *itype, const char
 }
 
 
+const char *VDrive::getDiskImageFilename()
+{
+  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
+    return m_drive->image->media.fsimage->name;
+  else
+    return NULL;
+}
+
 
 bool VDrive::isOk()
 {
@@ -201,7 +211,11 @@ bool VDrive::closeFile(uint8_t channel)
   bool isInUse = m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE;
 
   if( wasInUse && !isInUse ) m_numOpenChannels--;
-  archdep_flush();
+
+#ifdef ARDUINO
+  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
+    archdep_flush_memcache(m_drive->image->media.fsimage->fd);
+#endif
 
   return res;
 }
@@ -328,7 +342,10 @@ int VDrive::execute(const char *cmd, size_t cmdLen, bool convertToPETSCII)
     }
 
   int vres = vdrive_command_execute(m_drive, (uint8_t *) (pcmd==NULL ? cmd : pcmd), (unsigned int)cmdLen);
-  archdep_flush();
+#ifdef ARDUINO
+  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
+    archdep_flush_memcache(m_drive->image->media.fsimage->fd);
+#endif
 
   if( pcmd!=NULL ) lib_free(pcmd);
 
@@ -338,4 +355,16 @@ int VDrive::execute(const char *cmd, size_t cmdLen, bool convertToPETSCII)
     return 2;
   else
     return 0;
+}
+
+
+bool VDrive::readSector(uint32_t track, uint32_t sector, uint8_t *buf)
+{
+  return vdrive_read_sector(m_drive, buf, track, sector)==CBMDOS_IPE_OK;
+}
+
+
+bool VDrive::writeSector(uint32_t track, uint32_t sector, const uint8_t *buf)
+{
+  return vdrive_write_sector(m_drive, buf, track, sector)==CBMDOS_IPE_OK;
 }

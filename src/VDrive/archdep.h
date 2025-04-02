@@ -130,12 +130,14 @@ int  archdep_rename(const char *oldpath, const char *newpath);
 int  archdep_stat(const char *filename, size_t *len, unsigned int *isdir);
 int  archdep_access(const char *pathname, int mode);
 
-void archdep_flush();
-
 // --- directory functions
 archdep_dir_t *archdep_opendir(const char *path, int mode);
 const char *archdep_readdir(archdep_dir_t *dir);
 void archdep_closedir(archdep_dir_t *dir);
+
+#ifdef ARDUINO
+void archdep_flush_memcache(ADFILE *f);
+#endif
 
 #ifdef __cplusplus
 }

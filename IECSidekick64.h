@@ -19,6 +19,10 @@ class IECSidekick64 : public IECFileDevice
   virtual void getStatus(char *buffer, uint8_t bufferSize);
   virtual void execute(const char *command, uint8_t len);
 
+  void unmountDiskImage();
+  bool mountDiskImage(const char *name);
+  const char *getMountedImageName();
+
   const std::string &getConfigValue(const std::string &key);
   void setConfigValue(const std::string &key, const std::string &value, bool write = true);
 
@@ -31,6 +35,11 @@ class IECSidekick64 : public IECFileDevice
   virtual uint8_t write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi);
   virtual void close(uint8_t channel);
   virtual void reset();
+
+#if defined(SUPPORT_EPYX) && defined(SUPPORT_EPYX_SECTOROPS)
+  virtual bool epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer);
+  virtual bool epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer);
+#endif
 
   ConfigType m_config;
 
