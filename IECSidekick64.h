@@ -48,16 +48,25 @@ class IECSidekick64 : public IECFileDevice
   uint8_t openDir();
   bool readDir(uint8_t *data);
   bool isMatch(const char *name, const char *pattern, uint8_t extmatch);
+  const char *getStatusMessage(uint8_t statusCode);
 
   void readConfig();
   void writeConfig();
 
   const char *findFile(const char *name, char ftype);
+  std::string stripFileName(const char *cname);
+  void updateDisplay(int showStatus = 1);
 
   VDrive *m_drive;
 
   File m_file;
   Dir  m_dir;
+
+  std::string m_curFileName;
+  int         m_curFileChannel;
+  int         m_curFileSize;
+  int         m_curFileBytesRead;
+  int         m_progressWidth;
 
   bool    m_dirOpen;
   uint8_t m_pinLED, m_pinChipSelect, m_errorCode, m_scratched;

@@ -1,5 +1,18 @@
 #include "IECSidekick64.h"
 #include <LittleFS.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Fonts/FreeSans9pt7b.h>
+
+using namespace std;
+
+#define DISPLAY_ADDR     0x3C
+#define DISPLAY_PIN_SDA  20
+#define DISPLAY_PIN_SCL  21
+#define BUTTON_PIN       22
+
+Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 #define E_OK          0
 #define E_SCRATCHED   1
@@ -13,7 +26,7 @@
 #define E_SPLASH     73
 #define E_NOTREADY   74
 #define E_TOOMANY    98
-#define E_VDRIVE     255
+#define E_VDRIVE     99
 
 #define CONFIGFILENAME "$CONFIG$"
 
@@ -23,6 +36,21 @@
 
 // ----------------------------------------------------------------------------------------------
 
+static bool changeDisk = false;
+static void diskChangeButtonFcn()
+{
+  static unsigned long debounceTime = 0;
+  static bool debounceState = true;
+
+  bool state = digitalRead(BUTTON_PIN);
+  if( state!=debounceState && millis()>debounceTime )
+    {
+      debounceState = state;
+      debounceTime  = millis()+20;
+      if( !state ) changeDisk = true;
+    }
+}
+
 
 IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinLED) :
   IECFileDevice(devnum)
@@ -31,11 +59,21 @@ IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinL
   m_pinChipSelect = pinChipSelect;
   m_dirOpen = false;
   m_drive = NULL;
+  m_curFileChannel = -1;
 }
 
 
 void IECSidekick64::begin()
 {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(BUTTON_PIN, diskChangeButtonFcn, CHANGE);
+
+  Wire.setSDA(DISPLAY_PIN_SDA);
+  Wire.setSCL(DISPLAY_PIN_SCL);
+  display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDR);
+  display.cp437(true);
+  display.setTextColor(SSD1306_WHITE);
+
   if( m_pinChipSelect<0xFF ) pinMode(m_pinChipSelect, OUTPUT);
 
   unsigned long ledTestEnd = millis() + 500;
@@ -58,6 +96,7 @@ void IECSidekick64::begin()
   m_drive = new VDrive(0);
 
   IECFileDevice::begin();
+  updateDisplay();
 }
 
 
@@ -80,19 +119,54 @@ void IECSidekick64::task()
         }
     }
 
+  if( changeDisk )
+    {
+      changeDisk = false;
+
+      updateDisplay(0);
+      string current;
+      if( m_drive->isOk() ) 
+        {
+          current = m_drive->getDiskImageFilename();
+          m_drive->closeDiskImage();
+        }
+
+      display.setCursor(0, 56);
+      display.setTextSize(1);
+      display.print("Searching...");
+      display.display();
+
+      bool found = false;
+      Dir dir = LittleFS.openDir("/");
+      if( !current.empty() )
+        {
+          while( !found && dir.next() )
+            found = strcmp(dir.fileName().c_str(), current.c_str())==0;
+
+          // if we can't find the current image then just find the first one
+          if( !found ) dir = LittleFS.openDir("/");
+        }
+
+      // keep trying to mount files as disk images and stop if one found
+      while( !m_drive->isOk() && dir.next() )
+        m_drive->openDiskImage(dir.fileName().c_str());
+
+      updateDisplay();
+    }
+
   // handle IEC serial bus communication, the open/read/write/close/execute 
   // functions will be called from within this when required
   IECFileDevice::task();
 }
 
 
-const std::string &IECSidekick64::getConfigValue(const std::string &key)
+const string &IECSidekick64::getConfigValue(const string &key)
 {
   return m_config[key];
 }
 
 
-void IECSidekick64::setConfigValue(const std::string &key, const std::string &value, bool write)
+void IECSidekick64::setConfigValue(const string &key, const string &value, bool write)
 {
   m_config[key] = value;
   if( write ) writeConfig();
@@ -120,7 +194,7 @@ void IECSidekick64::readConfig()
                   if( eq!=NULL )
                     {
                       *eq = 0;
-                      m_config[std::string(line)]=std::string(eq+1);
+                      m_config[string(line)]=string(eq+1);
                     }
                 }
             }
@@ -144,9 +218,9 @@ void IECSidekick64::writeConfig()
   File f = LittleFS.open("/" CONFIGFILENAME, "w");
   if( f )
     {
-      for(const std::pair<const std::string, std::string>&cfg : m_config)
+      for(const std::pair<const string, string>&cfg : m_config)
         {
-          std::string line = cfg.first + "=" + cfg.second + "\n";
+          string line = cfg.first + "=" + cfg.second + "\n";
           f.write((uint8_t *) line.c_str(), line.length());
         }
       f.close();
@@ -182,6 +256,14 @@ bool IECSidekick64::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buff
   return res;
 }
 #endif
+
+
+string IECSidekick64::stripFileName(const char *cname)
+{
+  string name  = (isdigit(cname[0]) && cname[1]==':') ? cname+2 : cname;
+  size_t comma = name.find_first_of(',');
+  return comma==string::npos ? name : name.substr(0, comma);
+}
 
 
 uint8_t IECSidekick64::openDir()
@@ -437,9 +519,27 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
     m_errorCode = openFile(channel, name);
   else
     {
-      // we can only have one file open at a time
+      // we can only have one file open at a time when accessing the SD directory
       m_errorCode = E_TOOMANY;
     }
+
+  if( m_errorCode==E_OK )
+    {
+      m_curFileName      = stripFileName(name);
+      m_curFileChannel   = channel;
+      m_curFileBytesRead = 0;
+
+      if( m_drive->isOk() )
+        m_curFileSize = m_drive->getFileNumBlocks(m_curFileName.c_str()) * 254;
+      else if( m_file )
+        m_curFileSize = m_file.size();
+      else
+        m_curFileSize = -1;
+
+      updateDisplay(0);
+    }
+  else
+    updateDisplay();
 
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
@@ -450,21 +550,46 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
 
 uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi)
 {
+  uint8_t n = 0;
+
   if( m_drive->isFileOk(channel) )
     {
-      size_t n = bufferSize;
-      if( !m_drive->read(channel, buffer, &n, eoi) )
-        {
-          m_errorCode = E_VDRIVE;
-          return 0;
-        }
-
-      return n;
+      size_t nn = bufferSize;
+      if( m_drive->read(channel, buffer, &nn, eoi) )
+        n = nn;
+      else
+        m_errorCode = E_VDRIVE;
     }
   else if( m_file )
-    return m_file.read(buffer, bufferSize);
+    n = m_file.read(buffer, bufferSize);
   else
-    return readDir(buffer) ? 1 : 0;
+    n = readDir(buffer) ? 1 : 0;
+
+  if( channel==m_curFileChannel && m_curFileSize>0 )
+    {
+      int w = (display.width() * m_curFileBytesRead) / m_curFileSize;
+      if( w>m_progressWidth )
+        {
+          // Drawing a progress bar via the SSD1306 library is WAY too slow,
+          // severely impacting IEC transmission speed. The cause mostly is
+          // that display.display() must be called after drawing which re-transmits
+          // the entire display contents. Instead we placed the "cursor" at the
+          // lower-left of the display during "open" and now are just sending 0xF0
+          // data, each of which enables the bottom 4 pixels of the next column.
+          Wire.beginTransmission(DISPLAY_ADDR);
+          Wire.write(0x40); // "write data"
+          while( m_progressWidth < w )
+            {
+              Wire.write(0xF0); // one column with bottom 4 pixels set
+              m_progressWidth++;
+            }
+          Wire.endTransmission();
+        }
+
+      m_curFileBytesRead += n;
+    }
+
+  return n;
 }
 
 
@@ -501,6 +626,13 @@ void IECSidekick64::close(uint8_t channel)
     }
   else 
     m_file.close(); 
+
+  if( m_curFileChannel==channel )
+    {
+      m_curFileName.clear();
+      m_curFileChannel = -1;
+      updateDisplay();
+    }
 }
 
 
@@ -532,6 +664,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
         { 
           m_drive->closeDiskImage(); 
           m_errorCode = E_OK; 
+          updateDisplay();
         }
       else 
         {
@@ -622,28 +755,23 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       strncpy(m_dirBuffer, command+3, IEC_BUFSIZE);
       m_dirBuffer[IEC_BUFSIZE-1]=0;
       m_errorCode = m_drive->openDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
+      updateDisplay();
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
     m_errorCode = E_OK;
   else
     m_errorCode = E_INVCMD;
 
+  if( m_errorCode!=E_OK ) updateDisplay();
   digitalWrite(m_pinLED, LOW);
 }
 
 
-void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
+const char *IECSidekick64::getStatusMessage(uint8_t statusCode)
 {
-  if( m_errorCode==E_VDRIVE )
-    {
-      strncpy(buffer, m_drive->getStatusString(), bufferSize);
-      buffer[bufferSize-1] = '\r';
-      m_errorCode = E_OK;
-      return;
-    }
-
   const char *message = NULL;
-  switch( m_errorCode )
+
+  switch( statusCode )
     {
     case E_OK:                   { message = " OK"; break; }
     case E_READ:                 { message = "READ ERROR"; break; }
@@ -660,6 +788,21 @@ void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
     default:                     { message = "UNKNOWN"; break; }
     }
 
+  return message;
+}
+
+
+void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
+{
+  if( m_errorCode==E_VDRIVE )
+    {
+      strncpy(buffer, m_drive->getStatusString(), bufferSize);
+      buffer[bufferSize-1] = '\r';
+      m_errorCode = E_OK;
+      return;
+    }
+
+  const char *message = getStatusMessage(m_errorCode);
   uint8_t i = 0;
   buffer[i++] = '0' + (m_errorCode / 10);
   buffer[i++] = '0' + (m_errorCode % 10);
@@ -673,20 +816,29 @@ void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
   buffer[i++] = '0' + (m_scratched % 10);
   strcpy(buffer+i, ",00\r");
 
-  m_errorCode = E_OK;
+  if( m_errorCode!=E_OK )
+    {
+      m_errorCode = E_OK;
+      updateDisplay();
+    }
 }
 
 
 void IECSidekick64::unmountDiskImage()
 {
   if( m_drive->isOk() )
-    m_drive->closeDiskImage(); 
+    m_drive->closeDiskImage();
+
+  updateDisplay();
 }
 
 
 bool IECSidekick64::mountDiskImage(const char *name)
 {
-  unmountDiskImage();
+  if( m_drive->isOk() )
+    m_drive->closeDiskImage();
+
+  updateDisplay();
   return m_drive->openDiskImage(name);
 }
 
@@ -709,11 +861,61 @@ void IECSidekick64::reset()
 
   m_file.close();
   m_dirOpen = false;
+  m_curFileName.clear();
+  m_curFileChannel = -1;
 
   if( m_pinLED<0xFF ) 
     { 
       unsigned long t = millis();
       if( t<ledTestEnd ) delay(ledTestEnd-t);
       digitalWrite(m_pinLED, LOW); 
+    }
+
+  updateDisplay();
+}
+
+
+void IECSidekick64::updateDisplay(int showStatus)
+{
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(0,0);
+  display.println(m_drive->isOk() ? string(m_drive->getDiskImageFilename()).substr(0, 10).c_str() : "<SD>");
+
+  if( !m_curFileName.empty() )
+    {
+      if( m_curFileName.size()>10 )
+        {
+          display.setTextSize(1);
+          display.println();
+          display.println(m_curFileName.substr(0, 21).c_str());
+        }
+      else
+        display.println(m_curFileName.substr(0, 10).c_str());
+    }
+
+  if( showStatus==2 || (showStatus==1 && m_errorCode>=20 && m_errorCode!=E_SPLASH) )
+    {
+      char buf[22];
+      if( m_errorCode==E_VDRIVE )
+        strncpy(buf, m_drive->getStatusString(), 22);
+      else
+        snprintf(buf, 22, "%02i,%s,00,00", m_errorCode, getStatusMessage(m_errorCode));
+
+      buf[21] = 0;
+      display.setTextSize(1);
+      display.setCursor(0, 56);
+      display.print(buf);
+    }
+
+  display.display();
+
+  if( m_curFileChannel>=0 && m_curFileSize>0 )
+    {
+      // prepare OLED for displaying progress bar on bottom row
+      display.ssd1306_command(0xB7); // bottom row
+      display.ssd1306_command(0x00); // first column (low nybble)
+      display.ssd1306_command(0x10); // first column (high nybble)
+      m_progressWidth = 0;
     }
 }
