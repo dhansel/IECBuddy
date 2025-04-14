@@ -136,9 +136,9 @@ static unsigned long timer_start_us;
 #define timer_wait_until(us) while( timer_less_than(us) )
 
 #ifdef JDEBUG
-#define JDEBUGI() pinMode(20, OUTPUT)
-#define JDEBUG0() gpio_put(20, 0)
-#define JDEBUG1() gpio_put(20, 1)
+#define JDEBUGI() pinMode(28, OUTPUT)
+#define JDEBUG0() gpio_put(28, 0)
+#define JDEBUG1() gpio_put(28, 1)
 #endif
 
 // ---------------- ESP32
