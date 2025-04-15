@@ -229,6 +229,20 @@ void sendFile()
           // send status
           if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
+          Adafruit_SSD1306 &display = iecDrive.getDisplay();
+          if( status==ST_OK )
+            {
+              display.clearDisplay();
+              display.setCursor(0,0);
+              display.setTextSize(2);
+              display.println("Sending");
+              display.setTextSize(1);
+              display.println();
+              display.print(fileName.c_str());
+              display.display();
+              iecDrive.startProgress(length);
+            }
+
           // send data
           uint8_t buf[1024];
           while( status==ST_OK && length>0 )
@@ -260,6 +274,7 @@ void sendFile()
               if( status==ST_OK )
                 status = recv_status();
               
+              iecDrive.updateProgress(i);
               length -= i;
             }
 
@@ -267,6 +282,8 @@ void sendFile()
           s_modTime = 1;
           file.close();
           s_modTime = 0;
+
+          iecDrive.updateDisplay();
         }
       else
         {
@@ -333,6 +350,20 @@ void receiveFile()
               // send initial status
               if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
+              Adafruit_SSD1306 &display = iecDrive.getDisplay();
+              if( status==ST_OK )
+                {
+                  display.clearDisplay();
+                  display.setCursor(0,0);
+                  display.setTextSize(2);
+                  display.println("Receiving");
+                  display.setTextSize(1);
+                  display.println();
+                  display.print(fileName.c_str());
+                  display.display();
+                  iecDrive.startProgress(length);
+                }
+
               // receive data
               uint8_t buf[1024];
               while( status==ST_OK && length>0 )
@@ -371,6 +402,7 @@ void receiveFile()
                         status = ST_COM_ERROR;
                     }
                   
+                  iecDrive.updateProgress(n);
                   length -= n;
                 }
               
@@ -383,6 +415,8 @@ void receiveFile()
               // received (incomplete) file
               if( status!=ST_OK )
                 LittleFS.remove(fileName.c_str());
+
+              iecDrive.updateDisplay();
             }
           else
             send_status(ST_WRITE_ERROR);

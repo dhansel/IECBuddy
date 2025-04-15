@@ -1,11 +1,12 @@
 #ifndef IECSIDEKICK64_H
 #define IECSIDEKICK64_H
 
-#include "src/IECDevice/IECFileDevice.h"
-#include <LittleFS.h>
-#include "src/VDrive/VDriveClass.h"
 #include <string>
 #include <unordered_map>
+#include <LittleFS.h>
+#include <Adafruit_SSD1306.h>
+#include "src/IECDevice/IECFileDevice.h"
+#include "src/VDrive/VDriveClass.h"
 
 #define IEC_BUFSIZE 64
 
@@ -25,6 +26,11 @@ class IECSidekick64 : public IECFileDevice
 
   const std::string &getConfigValue(const std::string &key);
   void setConfigValue(const std::string &key, const std::string &value, bool write = true);
+
+  Adafruit_SSD1306 &getDisplay();
+  void startProgress(int nbytestotal);
+  void updateProgress(int nbytes);
+  void updateDisplay(int showStatus = 1);
 
  protected:
   virtual void begin();
@@ -55,7 +61,6 @@ class IECSidekick64 : public IECFileDevice
 
   const char *findFile(const char *name, char ftype);
   std::string stripFileName(const char *cname);
-  void updateDisplay(int showStatus = 1);
 
   VDrive *m_drive;
 

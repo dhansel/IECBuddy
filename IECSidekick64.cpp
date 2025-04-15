@@ -2,8 +2,6 @@
 #include <LittleFS.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Fonts/FreeSans9pt7b.h>
 
 using namespace std;
 
@@ -12,7 +10,7 @@ using namespace std;
 #define DISPLAY_PIN_SCL  21
 #define BUTTON_PIN       22
 
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
+static Adafruit_SSD1306 s_display(128, 64, &Wire, -1);
 
 #define E_OK          0
 #define E_SCRATCHED   1
@@ -70,9 +68,9 @@ void IECSidekick64::begin()
 
   Wire.setSDA(DISPLAY_PIN_SDA);
   Wire.setSCL(DISPLAY_PIN_SCL);
-  display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDR);
-  display.cp437(true);
-  display.setTextColor(SSD1306_WHITE);
+  s_display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDR);
+  s_display.cp437(true);
+  s_display.setTextColor(SSD1306_WHITE);
 
   if( m_pinChipSelect<0xFF ) pinMode(m_pinChipSelect, OUTPUT);
 
@@ -131,10 +129,10 @@ void IECSidekick64::task()
           m_drive->closeDiskImage();
         }
 
-      display.setCursor(0, 56);
-      display.setTextSize(1);
-      display.print("Searching...");
-      display.display();
+      s_display.setCursor(0, 56);
+      s_display.setTextSize(1);
+      s_display.print("Searching...");
+      s_display.display();
 
       bool found = false;
       Dir dir = LittleFS.openDir("/");
@@ -260,7 +258,14 @@ bool IECSidekick64::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buff
 
 string IECSidekick64::stripFileName(const char *cname)
 {
-  string name  = (isdigit(cname[0]) && cname[1]==':') ? cname+2 : cname;
+  if( cname[0]=='@' ) cname++;
+
+  if( isdigit(cname[0]) && cname[1]==':' )
+    cname += 2;
+  else if( cname[0]==':' )
+    cname++;
+
+  string name(cname);
   size_t comma = name.find_first_of(',');
   return comma==string::npos ? name : name.substr(0, comma);
 }
@@ -525,18 +530,16 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
 
   if( m_errorCode==E_OK )
     {
-      m_curFileName      = stripFileName(name);
-      m_curFileChannel   = channel;
-      m_curFileBytesRead = 0;
-
-      if( m_drive->isOk() )
-        m_curFileSize = m_drive->getFileNumBlocks(m_curFileName.c_str()) * 254;
-      else if( m_file )
-        m_curFileSize = m_file.size();
-      else
-        m_curFileSize = -1;
+      m_curFileName    = stripFileName(name);
+      m_curFileChannel = channel;
 
       updateDisplay(0);
+      if( m_drive->isOk() )
+        startProgress(m_drive->getFileNumBlocks(m_curFileName.c_str()) * 254);
+      else if( m_file )
+        startProgress(m_file.size());
+      else
+        startProgress(-1);
     }
   else
     updateDisplay();
@@ -565,29 +568,8 @@ uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize
   else
     n = readDir(buffer) ? 1 : 0;
 
-  if( channel==m_curFileChannel && m_curFileSize>0 )
-    {
-      int w = (display.width() * m_curFileBytesRead) / m_curFileSize;
-      if( w>m_progressWidth )
-        {
-          // Drawing a progress bar via the SSD1306 library is WAY too slow,
-          // severely impacting IEC transmission speed. The cause mostly is
-          // that display.display() must be called after drawing which re-transmits
-          // the entire display contents. Instead we placed the "cursor" at the
-          // lower-left of the display during "open" and now are just sending 0xF0
-          // data, each of which enables the bottom 4 pixels of the next column.
-          Wire.beginTransmission(DISPLAY_ADDR);
-          Wire.write(0x40); // "write data"
-          while( m_progressWidth < w )
-            {
-              Wire.write(0xF0); // one column with bottom 4 pixels set
-              m_progressWidth++;
-            }
-          Wire.endTransmission();
-        }
-
-      m_curFileBytesRead += n;
-    }
+  if( channel==m_curFileChannel )
+    updateProgress(n);
 
   return n;
 }
@@ -875,23 +857,73 @@ void IECSidekick64::reset()
 }
 
 
+Adafruit_SSD1306 &IECSidekick64::getDisplay()
+{
+  return s_display;
+}
+
+
+void IECSidekick64::startProgress(int nbytestotal)
+{
+  m_progressWidth = 0;
+  m_curFileBytesRead = 0;
+  m_curFileSize = nbytestotal;
+
+  if( m_curFileSize>0 )
+    {
+      // prepare OLED for displaying progress bar on bottom row
+      s_display.ssd1306_command(0xB7); // bottom row
+      s_display.ssd1306_command(0x00); // first column (low nybble)
+      s_display.ssd1306_command(0x10); // first column (high nybble)
+    }
+}
+
+
+void IECSidekick64::updateProgress(int nbytes)
+{
+  if( m_curFileSize>0 )
+    {
+      int w = (s_display.width() * m_curFileBytesRead) / m_curFileSize;
+      if( w>m_progressWidth )
+        {
+          // Drawing a progress bar via the SSD1306 library is WAY too slow,
+          // severely impacting IEC transmission speed. The cause mostly is
+          // that s_display.display() must be called after drawing which re-transmits
+          // the entire display contents. Instead we placed the "cursor" at the
+          // lower-left of the display during "open" and now are just sending 0xF0
+          // data, each of which enables the bottom 4 pixels of the next column.
+          Wire.beginTransmission(DISPLAY_ADDR);
+          Wire.write(0x40); // "write data"
+          while( m_progressWidth < w )
+            {
+              Wire.write(0xF0); // one column with bottom 4 pixels set
+              m_progressWidth++;
+            }
+          Wire.endTransmission();
+        }
+
+      m_curFileBytesRead += nbytes;
+    }
+}
+
+
 void IECSidekick64::updateDisplay(int showStatus)
 {
-  display.clearDisplay();
-  display.setTextSize(2);
-  display.setCursor(0,0);
-  display.println(m_drive->isOk() ? string(m_drive->getDiskImageFilename()).substr(0, 10).c_str() : "<SD>");
+  s_display.clearDisplay();
+  s_display.setTextSize(2);
+  s_display.setCursor(0,0);
+  s_display.println(m_drive->isOk() ? string(m_drive->getDiskImageFilename()).substr(0, 10).c_str() : "<SD>");
 
   if( !m_curFileName.empty() )
     {
       if( m_curFileName.size()>10 )
         {
-          display.setTextSize(1);
-          display.println();
-          display.println(m_curFileName.substr(0, 21).c_str());
+          s_display.setTextSize(1);
+          s_display.println();
+          s_display.println(m_curFileName.substr(0, 21).c_str());
         }
       else
-        display.println(m_curFileName.substr(0, 10).c_str());
+        s_display.println(m_curFileName.substr(0, 10).c_str());
     }
 
   if( showStatus==2 || (showStatus==1 && m_errorCode>=20 && m_errorCode!=E_SPLASH) )
@@ -903,19 +935,19 @@ void IECSidekick64::updateDisplay(int showStatus)
         snprintf(buf, 22, "%02i,%s,00,00", m_errorCode, getStatusMessage(m_errorCode));
 
       buf[21] = 0;
-      display.setTextSize(1);
-      display.setCursor(0, 56);
-      display.print(buf);
+      s_display.setTextSize(1);
+      s_display.setCursor(0, 56);
+      s_display.print(buf);
     }
 
-  display.display();
+  s_display.display();
 
   if( m_curFileChannel>=0 && m_curFileSize>0 )
     {
       // prepare OLED for displaying progress bar on bottom row
-      display.ssd1306_command(0xB7); // bottom row
-      display.ssd1306_command(0x00); // first column (low nybble)
-      display.ssd1306_command(0x10); // first column (high nybble)
+      s_display.ssd1306_command(0xB7); // bottom row
+      s_display.ssd1306_command(0x00); // first column (low nybble)
+      s_display.ssd1306_command(0x10); // first column (high nybble)
       m_progressWidth = 0;
     }
 }
