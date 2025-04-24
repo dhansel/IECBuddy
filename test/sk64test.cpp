@@ -470,6 +470,7 @@ void execCommand(string cmd)
   else if( cmd.substr(0, 4)=="cmd " )
     {
       status = sendDriveCommand(cmd.substr(4));
+      if( status==ST_OK ) execCommand("status");
     }
   else if( cmd=="status" || cmd=="s" )
     {
@@ -494,7 +495,7 @@ void execCommand(string cmd)
       status = ST_INVALID_COMMAND;
     }
 
-  printf("Status: %s (%i)\n", get_status_msg(status), status);
+  if( status!=ST_OK ) printf("Error: %s (%i)\n", get_status_msg(status), status);
 }
 
 void showCommands()
