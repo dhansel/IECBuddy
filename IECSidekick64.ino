@@ -1,4 +1,5 @@
 #include "IECSidekick64.h"
+#include "IECDisplay.h"
 #include "src/IECDevice/IECBusHandler.h"
 #include "protocol.h"
 using namespace std;
@@ -229,19 +230,9 @@ void sendFile()
           // send status
           if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-          Adafruit_SSD1306 &display = iecDrive.getDisplay();
-          if( status==ST_OK )
-            {
-              display.clearDisplay();
-              display.setCursor(0,0);
-              display.setTextSize(2);
-              display.println("Sending");
-              display.setTextSize(1);
-              display.println();
-              display.print(fileName.c_str());
-              display.display();
-              iecDrive.startProgress(length);
-            }
+          IECDisplay *display = iecDrive.getDisplay();
+          display->showTransmitMessage("Sending", fileName);
+          display->startProgress(length);
 
           // send data
           uint8_t buf[1024];
@@ -274,7 +265,7 @@ void sendFile()
               if( status==ST_OK )
                 status = recv_status();
               
-              iecDrive.updateProgress(i);
+              display->updateProgress(i);
               length -= i;
             }
 
@@ -350,19 +341,9 @@ void receiveFile()
               // send initial status
               if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-              Adafruit_SSD1306 &display = iecDrive.getDisplay();
-              if( status==ST_OK )
-                {
-                  display.clearDisplay();
-                  display.setCursor(0,0);
-                  display.setTextSize(2);
-                  display.println("Receiving");
-                  display.setTextSize(1);
-                  display.println();
-                  display.print(fileName.c_str());
-                  display.display();
-                  iecDrive.startProgress(length);
-                }
+              IECDisplay *display = iecDrive.getDisplay();
+              display->showTransmitMessage("Receiving", fileName);
+              display->startProgress(length);
 
               // receive data
               uint8_t buf[1024];
@@ -402,7 +383,7 @@ void receiveFile()
                         status = ST_COM_ERROR;
                     }
                   
-                  iecDrive.updateProgress(n);
+                  display->updateProgress(n);
                   length -= n;
                 }
               

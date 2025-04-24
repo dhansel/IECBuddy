@@ -4,12 +4,12 @@
 #include <string>
 #include <unordered_map>
 #include <LittleFS.h>
-#include <Adafruit_SSD1306.h>
 #include "src/IECDevice/IECFileDevice.h"
 #include "src/VDrive/VDriveClass.h"
 
 #define IEC_BUFSIZE 64
 
+class IECDisplay;
 typedef std::unordered_map<std::string, std::string> ConfigType;
 
 class IECSidekick64 : public IECFileDevice
@@ -27,10 +27,8 @@ class IECSidekick64 : public IECFileDevice
   const std::string &getConfigValue(const std::string &key);
   void setConfigValue(const std::string &key, const std::string &value, bool write = true);
 
-  Adafruit_SSD1306 &getDisplay();
-  void startProgress(int nbytestotal);
-  void updateProgress(int nbytes);
-  void updateDisplay(int showStatus = 1);
+  IECDisplay *getDisplay() { return m_display; }
+  void updateDisplay();
 
  protected:
   virtual void begin();
@@ -54,7 +52,7 @@ class IECSidekick64 : public IECFileDevice
   uint8_t openDir();
   bool readDir(uint8_t *data);
   bool isMatch(const char *name, const char *pattern, uint8_t extmatch);
-  const char *getStatusMessage(uint8_t statusCode);
+  static const char *getStatusMessage(uint8_t statusCode);
 
   void readConfig();
   void writeConfig();
@@ -63,16 +61,12 @@ class IECSidekick64 : public IECFileDevice
   std::string stripFileName(const char *cname);
 
   VDrive *m_drive;
+  IECDisplay *m_display;
 
   File m_file;
   Dir  m_dir;
 
-  std::string m_curFileName;
-  int         m_curFileChannel;
-  int         m_curFileSize;
-  int         m_curFileBytesRead;
-  int         m_progressWidth;
-
+  int     m_curFileChannel;
   bool    m_dirOpen;
   uint8_t m_pinLED, m_pinChipSelect, m_errorCode, m_scratched;
   uint8_t m_dirBufferLen, m_dirBufferPtr;

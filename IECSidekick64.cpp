@@ -1,16 +1,11 @@
 #include "IECSidekick64.h"
+#include "IECDisplay_SSD1306.h"
+#include "IECDisplay_ST7789.h"
 #include <LittleFS.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
 
 using namespace std;
 
-#define DISPLAY_ADDR     0x3C
-#define DISPLAY_PIN_SDA  20
-#define DISPLAY_PIN_SCL  21
 #define BUTTON_PIN       22
-
-static Adafruit_SSD1306 s_display(128, 64, &Wire, -1);
 
 #define E_OK          0
 #define E_SCRATCHED   1
@@ -58,6 +53,10 @@ IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinL
   m_dirOpen = false;
   m_drive = NULL;
   m_curFileChannel = -1;
+
+  m_display = new IECDisplay_SSD1306();
+  //m_display = new IECDisplay_ST7789();
+  //m_display = new IECDisplay(); // no display
 }
 
 
@@ -65,12 +64,6 @@ void IECSidekick64::begin()
 {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   attachInterrupt(BUTTON_PIN, diskChangeButtonFcn, CHANGE);
-
-  Wire.setSDA(DISPLAY_PIN_SDA);
-  Wire.setSCL(DISPLAY_PIN_SCL);
-  s_display.begin(SSD1306_SWITCHCAPVCC, DISPLAY_ADDR);
-  s_display.cp437(true);
-  s_display.setTextColor(SSD1306_WHITE);
 
   if( m_pinChipSelect<0xFF ) pinMode(m_pinChipSelect, OUTPUT);
 
@@ -94,6 +87,7 @@ void IECSidekick64::begin()
   m_drive = new VDrive(0);
 
   IECFileDevice::begin();
+  m_display->begin();
   updateDisplay();
 }
 
@@ -121,7 +115,7 @@ void IECSidekick64::task()
     {
       changeDisk = false;
 
-      updateDisplay(0);
+      updateDisplay();
       string current;
       if( m_drive->isOk() ) 
         {
@@ -129,10 +123,7 @@ void IECSidekick64::task()
           m_drive->closeDiskImage();
         }
 
-      s_display.setCursor(0, 56);
-      s_display.setTextSize(1);
-      s_display.print("Searching...");
-      s_display.display();
+      m_display->showMessage("Searching...");
 
       bool found = false;
       Dir dir = LittleFS.openDir("/");
@@ -149,6 +140,8 @@ void IECSidekick64::task()
       while( !m_drive->isOk() && dir.next() )
         m_drive->openDiskImage(dir.fileName().c_str());
 
+      const char *iname = m_drive->getDiskImageFilename();
+      m_display->setCurrentImageName(iname ? iname : "");
       updateDisplay();
     }
 
@@ -530,16 +523,17 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
 
   if( m_errorCode==E_OK )
     {
-      m_curFileName    = stripFileName(name);
-      m_curFileChannel = channel;
+      string sname = stripFileName(name);
+      m_display->setCurrentFileName(sname);
 
-      updateDisplay(0);
+      m_curFileChannel = channel;
+      updateDisplay();
       if( m_drive->isOk() )
-        startProgress(m_drive->getFileNumBlocks(m_curFileName.c_str()) * 254);
+        m_display->startProgress(m_drive->getFileNumBlocks(sname.c_str()) * 254);
       else if( m_file )
-        startProgress(m_file.size());
+        m_display->startProgress(m_file.size());
       else
-        startProgress(-1);
+        m_display->startProgress(-1);
     }
   else
     updateDisplay();
@@ -569,7 +563,7 @@ uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize
     n = readDir(buffer) ? 1 : 0;
 
   if( channel==m_curFileChannel )
-    updateProgress(n);
+    m_display->updateProgress(n);
 
   return n;
 }
@@ -611,7 +605,7 @@ void IECSidekick64::close(uint8_t channel)
 
   if( m_curFileChannel==channel )
     {
-      m_curFileName.clear();
+      m_display->setCurrentFileName("");
       m_curFileChannel = -1;
       updateDisplay();
     }
@@ -646,6 +640,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
         { 
           m_drive->closeDiskImage(); 
           m_errorCode = E_OK; 
+          m_display->setCurrentImageName("");
           updateDisplay();
         }
       else 
@@ -736,7 +731,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     {
       strncpy(m_dirBuffer, command+3, IEC_BUFSIZE);
       m_dirBuffer[IEC_BUFSIZE-1]=0;
-      m_errorCode = m_drive->openDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
+      m_errorCode = mountDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
       updateDisplay();
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
@@ -811,6 +806,7 @@ void IECSidekick64::unmountDiskImage()
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
 
+  m_display->setCurrentImageName("");
   updateDisplay();
 }
 
@@ -820,8 +816,11 @@ bool IECSidekick64::mountDiskImage(const char *name)
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
 
+  bool res = m_drive->openDiskImage(name);
+  m_display->setCurrentImageName(res ? name : "");
   updateDisplay();
-  return m_drive->openDiskImage(name);
+
+  return res;
 }
 
 
@@ -843,7 +842,7 @@ void IECSidekick64::reset()
 
   m_file.close();
   m_dirOpen = false;
-  m_curFileName.clear();
+  m_display->setCurrentFileName("");
   m_curFileChannel = -1;
 
   if( m_pinLED<0xFF ) 
@@ -857,97 +856,14 @@ void IECSidekick64::reset()
 }
 
 
-Adafruit_SSD1306 &IECSidekick64::getDisplay()
+void IECSidekick64::updateDisplay()
 {
-  return s_display;
-}
+  char buf[22];
+  if( m_errorCode==E_VDRIVE )
+    strncpy(buf, m_drive->getStatusString(), 22);
+  else
+    snprintf(buf, 22, "%02i,%s,00,00", m_errorCode, getStatusMessage(m_errorCode));
 
-
-void IECSidekick64::startProgress(int nbytestotal)
-{
-  m_progressWidth = 0;
-  m_curFileBytesRead = 0;
-  m_curFileSize = nbytestotal;
-
-  if( m_curFileSize>0 )
-    {
-      // prepare OLED for displaying progress bar on bottom row
-      s_display.ssd1306_command(0xB7); // bottom row
-      s_display.ssd1306_command(0x00); // first column (low nybble)
-      s_display.ssd1306_command(0x10); // first column (high nybble)
-    }
-}
-
-
-void IECSidekick64::updateProgress(int nbytes)
-{
-  if( m_curFileSize>0 )
-    {
-      int w = (s_display.width() * m_curFileBytesRead) / m_curFileSize;
-      if( w>m_progressWidth )
-        {
-          // Drawing a progress bar via the SSD1306 library is WAY too slow,
-          // severely impacting IEC transmission speed. The cause mostly is
-          // that s_display.display() must be called after drawing which re-transmits
-          // the entire display contents. Instead we placed the "cursor" at the
-          // lower-left of the display during "open" and now are just sending 0xF0
-          // data, each of which enables the bottom 4 pixels of the next column.
-          Wire.beginTransmission(DISPLAY_ADDR);
-          Wire.write(0x40); // "write data"
-          while( m_progressWidth < w )
-            {
-              Wire.write(0xF0); // one column with bottom 4 pixels set
-              m_progressWidth++;
-            }
-          Wire.endTransmission();
-        }
-
-      m_curFileBytesRead += nbytes;
-    }
-}
-
-
-void IECSidekick64::updateDisplay(int showStatus)
-{
-  s_display.clearDisplay();
-  s_display.setTextSize(2);
-  s_display.setCursor(0,0);
-  s_display.println(m_drive->isOk() ? string(m_drive->getDiskImageFilename()).substr(0, 10).c_str() : "<SD>");
-
-  if( !m_curFileName.empty() )
-    {
-      if( m_curFileName.size()>10 )
-        {
-          s_display.setTextSize(1);
-          s_display.println();
-          s_display.println(m_curFileName.substr(0, 21).c_str());
-        }
-      else
-        s_display.println(m_curFileName.substr(0, 10).c_str());
-    }
-
-  if( showStatus==2 || (showStatus==1 && m_errorCode>=20 && m_errorCode!=E_SPLASH) )
-    {
-      char buf[22];
-      if( m_errorCode==E_VDRIVE )
-        strncpy(buf, m_drive->getStatusString(), 22);
-      else
-        snprintf(buf, 22, "%02i,%s,00,00", m_errorCode, getStatusMessage(m_errorCode));
-
-      buf[21] = 0;
-      s_display.setTextSize(1);
-      s_display.setCursor(0, 56);
-      s_display.print(buf);
-    }
-
-  s_display.display();
-
-  if( m_curFileChannel>=0 && m_curFileSize>0 )
-    {
-      // prepare OLED for displaying progress bar on bottom row
-      s_display.ssd1306_command(0xB7); // bottom row
-      s_display.ssd1306_command(0x00); // first column (low nybble)
-      s_display.ssd1306_command(0x10); // first column (high nybble)
-      m_progressWidth = 0;
-    }
+  buf[21] = 0;
+  m_display->update(buf);
 }
