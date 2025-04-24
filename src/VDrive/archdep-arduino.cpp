@@ -80,7 +80,6 @@ void archdep_flush_memcache(ADFILE *f)
           s_lfsFiles[fidx] = LittleFS.open(name, "r+");
           s_lfsFiles[fidx].seek(s_imageDataMinWritePos, SeekSet);
           ok = s_lfsFiles[fidx] && s_lfsFiles[fidx].write(s_imageData+s_imageDataMinWritePos, n);
-          if( ok ) s_lfsFiles[fidx].flush();
         }
       else
         {
@@ -88,8 +87,6 @@ void archdep_flush_memcache(ADFILE *f)
           // the new file and then deletes the old) => rewrite the whole file
           s_lfsFiles[fidx] = LittleFS.open(name, "w");
           ok = s_lfsFiles[fidx].write(s_imageData, s_imageDataSize);
-          s_lfsFiles[fidx].close();
-          s_lfsFiles[fidx] = LittleFS.open(name, "r");
         }
 
       if( ok )
@@ -101,6 +98,10 @@ void archdep_flush_memcache(ADFILE *f)
       else
         { DBG(("FAILED\n", 0)); }
       
+      // must close and re-open file so the "modified" bit (timestamp) gets updated
+      // (see IECSidekick64.ino)
+      s_lfsFiles[fidx].close();
+      s_lfsFiles[fidx] = LittleFS.open(name, "r");
       free(name);
     }
   else if( (s_lfsFilesFlags[fidx] & (F_CANTBUFFER|F_CANTWRITE))==F_CANTBUFFER )
