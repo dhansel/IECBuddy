@@ -617,6 +617,23 @@ void IECSidekick64::execute(const char *command, uint8_t len)
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
   digitalWrite(m_pinLED, HIGH);
+
+  // detect whether this is a "CD" command (with some flexibility in syntax), "cdcmd" will be
+  //  0: if not a "CD" command
+  // -1: if this is a CD "up" command
+  // >0: "cdcmd" is the index of the first character of the directory name within "command"
+  int cdcmd = 0;
+  if( command[0]=='C' && command[1]=='D' )
+    {
+      // if there is a colon then ignore anything before (and including) the colon
+      const char *colon = strchr(command, ':');
+      cdcmd = colon==NULL ? 2 : (colon-command+1);
+
+      // is this a cd "up" command?
+      if( strcmp(command+cdcmd, "..")==0 || strcmp(command+cdcmd, "_")==0 || strcmp(command+cdcmd, "^")==0 || strcmp(command+cdcmd, "/")==0 )
+        cdcmd = -1;
+    }
+
   if( command[0]=='X' || command[0]=='E' )
     {
       if( isdigit(command[1]) )
@@ -636,8 +653,9 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     }
   else if( m_drive->isOk() )
     {
-      if( strcmp(command, "CD:..")==0 || strcmp(command, "CD_")==0 )
-        { 
+      if( cdcmd<0 )
+        {
+          // CD "up"
           m_drive->closeDiskImage(); 
           m_errorCode = E_OK; 
           m_display->setCurrentImageName("");
@@ -727,9 +745,13 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       // memory write not supported => ignore
       m_errorCode = E_OK;
     }
-  else if( strncmp(command, "CD:",3)==0 )
+  else if( cdcmd<0 )
     {
-      strncpy(m_dirBuffer, command+3, IEC_BUFSIZE);
+      // CD "up" (no effect since no disk image mounted)
+    }
+  else if( cdcmd>0 )
+    {
+      strncpy(m_dirBuffer, command+cdcmd, IEC_BUFSIZE);
       m_dirBuffer[IEC_BUFSIZE-1]=0;
       m_errorCode = mountDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
       updateDisplay();
