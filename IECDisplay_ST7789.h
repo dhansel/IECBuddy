@@ -3,6 +3,9 @@
 
 #include "IECDisplay.h"
 
+// if enabled, the "GFX Library for Arduino" library must be installed in the Arduino IDE 
+//#define SUPPORT_ST7789
+
 class Arduino_ST7789m;
 
 class IECDisplay_ST7789 : public IECDisplay

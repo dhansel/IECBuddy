@@ -8,9 +8,9 @@
 #define CMD_MOUNT            6
 #define CMD_UNMOUNT          7
 #define CMD_GET_MOUNTED      8
-#define CMD_SET_PLAYLIST     9
-#define CMD_GET_PLAYLIST    10
-#define CMD_ADV_PLAYLIST    11
+#define CMD_SET_CONFIG_VAL   9
+#define CMD_GET_CONFIG_VAL  10
+#define CMD_CLEAR_CONFIG    11
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0

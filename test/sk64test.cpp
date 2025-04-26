@@ -448,6 +448,74 @@ StatusType getMountedDisk()
 }
 
 
+StatusType setConfigValue(const string &key, const string &value)
+{
+  StatusType status = ST_OK;
+
+  printf("%s %s\n", key.c_str(), value.c_str());
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_SET_CONFIG_VAL) )
+      status = ST_COM_ERROR;
+
+  // send key and value
+  if( status==ST_OK )
+    if( !send_string(key) || !send_string(value) )
+      status = ST_COM_ERROR;
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+
+  return status;
+}
+
+
+StatusType getConfigValue(const string &key)
+{
+  string value;
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_GET_CONFIG_VAL) )
+      status = ST_COM_ERROR;
+
+  // send key
+  if( status==ST_OK )
+    if( !send_string(key) )
+      status = ST_COM_ERROR;
+
+  // receive value
+  if( status==ST_OK )
+    if( !recv_string(value) )
+      status = ST_COM_ERROR;
+
+  if( status==ST_OK )
+    printf("Value of config '%s' is '%s'\n", key.c_str(), value.c_str());
+
+  return status;
+}
+
+
+StatusType clearConfig()
+{
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_CLEAR_CONFIG) )
+      status = ST_COM_ERROR;
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+
+  return status;
+}
+
+
 // ------------------ main function -----------------
 
 
@@ -489,6 +557,24 @@ void execCommand(string cmd)
   else if( cmd=="getmounted" )
     {
       status = getMountedDisk();
+    }
+  else if( cmd.substr(0, 13)=="setconfigval " )
+    {
+      int p1 = 13;
+      while( p1<cmd.length() && cmd[p1]==' ' ) p1++;
+      int p2 = cmd.find_first_of(' ', p1);
+      if( p1<cmd.length() && p2<cmd.length() )
+        status = setConfigValue(cmd.substr(p1, p2-p1), cmd.substr(p2+1));
+      else
+        status = ST_INVALID_COMMAND;
+    }
+  else if( cmd.substr(0, 13)=="getconfigval " )
+    {
+      status = getConfigValue(cmd.substr(13));
+    }
+  else if( cmd=="clearconfig" )
+    {
+      status = clearConfig();
     }
   else
     {

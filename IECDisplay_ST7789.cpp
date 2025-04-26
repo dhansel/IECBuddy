@@ -1,4 +1,6 @@
 #include "IECDisplay_ST7789.h"
+
+#ifdef SUPPORT_ST7789
 #include <Arduino_GFX_Library.h>
 
 using namespace std;
@@ -148,3 +150,5 @@ void IECDisplay_ST7789::update(const char *statusMessage)
       s_status = status;
     }
 }
+
+#endif

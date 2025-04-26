@@ -26,6 +26,7 @@ class IECSidekick64 : public IECFileDevice
 
   const std::string &getConfigValue(const std::string &key);
   void setConfigValue(const std::string &key, const std::string &value, bool write = true);
+  void clearConfig();
 
   IECDisplay *getDisplay() { return m_display; }
   void updateDisplay();
@@ -59,6 +60,7 @@ class IECSidekick64 : public IECFileDevice
 
   const char *findFile(const char *name, char ftype);
   std::string stripFileName(const char *cname);
+  bool isHiddenFile(const char *fname);
 
   VDrive *m_drive;
   IECDisplay *m_display;

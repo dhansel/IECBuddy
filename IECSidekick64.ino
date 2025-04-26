@@ -2,6 +2,7 @@
 #include "IECDisplay.h"
 #include "src/IECDevice/IECBusHandler.h"
 #include "protocol.h"
+#include <algorithm>
 using namespace std;
 
 #define DEBUG 0
@@ -128,6 +129,7 @@ void sendDriveStatus()
 
   char buffer[255];
   iecDrive.getStatus(buffer, 255);
+  iecDrive.updateDisplay();
   send_string(buffer);
 }
 
@@ -141,8 +143,38 @@ void execDriveCommand()
   string cmd;
   if( recv_string(cmd) )
     {
-      iecDrive.execute(cmd.c_str(), cmd.length());
+      if( iecDrive.getMountedImageName()==NULL )
+        iecDrive.execute(cmd.c_str(), cmd.length());
+      else
+        {
+          // execute command on SD card (not in currently mounted image)
+          string imageName(iecDrive.getMountedImageName());
+          iecDrive.unmountDiskImage();
+          iecDrive.execute(cmd.c_str(), cmd.length());
+          iecDrive.mountDiskImage(imageName.c_str());
+        }
+
       send_status(ST_OK);
+    }
+}
+
+
+void rmDirRecursive(string dirName)
+{
+  Dir dir = LittleFS.openDir(dirName.c_str());
+  while( dir.next() )
+    {
+      string fullName = dirName+string("/")+string(dir.fileName().c_str());
+#if DEBUG>0
+      Serial1.printf("remove: %s\r\n", fullName.c_str());
+#endif
+      if( dir.isDirectory() )
+        {
+          rmDirRecursive(fullName);
+          LittleFS.rmdir(fullName.c_str());
+        }
+      else
+        LittleFS.remove(fullName.c_str());
     }
 }
 
@@ -154,7 +186,7 @@ void sendDir()
 #if DEBUG>0
   Serial1.printf("sendDir()\r\n");
 #endif
-  
+
   // check whether directory exists
   File f = LittleFS.open(s.c_str(), "r");
   bool ok = f && f.isDirectory();
@@ -210,6 +242,9 @@ void sendFile()
   // receive file name
   if( recv_string(fileName) )
     {
+      // convert "/" and "\" to "-" (we don't support subdirectories)
+      transform(fileName.begin(), fileName.end(), fileName.begin(), [](unsigned char c){ return c=='/' || c=='\\' ? '-' : c; });
+
 #if DEBUG>0
       Serial1.printf("name=%s\r\n", fileName.c_str());
 #endif
@@ -303,6 +338,9 @@ void receiveFile()
   if( recv_string(fileName) )
     {
       StatusType status = ST_OK;
+
+      // convert "/" and "\" to "-" (we don't support subdirectories)
+      transform(fileName.begin(), fileName.end(), fileName.begin(), [](unsigned char c){ return c=='/' || c=='\\' ? '-' : c; });
 
       // receive length
       uint32_t length;
@@ -447,18 +485,47 @@ void getMountedDiskImage()
 
 
 
+void setConfigValue()
+{
+  string key, value;
+  if( recv_string(key) && recv_string(value) )
+    {
+      iecDrive.setConfigValue(key, value);
+      send_status(ST_OK);
+    }
+}
+
+
+void getConfigValue()
+{
+  string key;
+  if( recv_string(key) )
+    send_string(iecDrive.getConfigValue(key));
+}
+
+
+void clearConfig()
+{
+  iecDrive.clearConfig();
+  send_status(ST_OK);
+}
+
+
 void execCmd(CommandType cmd)
 {
   switch( cmd )
     {
-    case CMD_DIR:         sendDir();  break;
-    case CMD_GETFILE:     sendFile(); break;
-    case CMD_PUTFILE:     receiveFile(); break;
-    case CMD_DRIVESTATUS: sendDriveStatus(); break;
-    case CMD_DRIVECMD:    execDriveCommand(); break;
-    case CMD_MOUNT:       mountDiskImage(); break;
-    case CMD_UNMOUNT:     unmountDiskImage(); break;
-    case CMD_GET_MOUNTED: getMountedDiskImage(); break;
+    case CMD_DIR:            sendDir();  break;
+    case CMD_GETFILE:        sendFile(); break;
+    case CMD_PUTFILE:        receiveFile(); break;
+    case CMD_DRIVESTATUS:    sendDriveStatus(); break;
+    case CMD_DRIVECMD:       execDriveCommand(); break;
+    case CMD_MOUNT:          mountDiskImage(); break;
+    case CMD_UNMOUNT:        unmountDiskImage(); break;
+    case CMD_GET_MOUNTED:    getMountedDiskImage(); break;
+    case CMD_SET_CONFIG_VAL: setConfigValue(); break;
+    case CMD_GET_CONFIG_VAL: getConfigValue(); break;
+    case CMD_CLEAR_CONFIG:   clearConfig(); break;
 
     default: 
       {

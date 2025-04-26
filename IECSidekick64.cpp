@@ -2,6 +2,7 @@
 #include "IECDisplay_SSD1306.h"
 #include "IECDisplay_ST7789.h"
 #include <LittleFS.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -29,6 +30,12 @@ using namespace std;
 
 // ----------------------------------------------------------------------------------------------
 
+static string tolower(string s)
+{
+  transform(s.begin(), s.end(), s.begin(), [](unsigned char c){ return std::tolower(c); });
+  return s;
+}
+
 static bool changeDisk = false;
 static void diskChangeButtonFcn()
 {
@@ -53,10 +60,7 @@ IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinL
   m_dirOpen = false;
   m_drive = NULL;
   m_curFileChannel = -1;
-
-  m_display = new IECDisplay_SSD1306();
-  //m_display = new IECDisplay_ST7789();
-  //m_display = new IECDisplay(); // no display
+  m_display = new IECDisplay(); // no display
 }
 
 
@@ -74,7 +78,7 @@ void IECSidekick64::begin()
   LittleFS.begin();
   readConfig();
 
-  int d = std::atoi(getConfigValue("Device").c_str());
+  int d = std::atoi(getConfigValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
 
   if( m_pinLED<0xFF ) 
@@ -83,6 +87,35 @@ void IECSidekick64::begin()
       if( t<ledTestEnd ) delay(ledTestEnd-t);
       digitalWrite(m_pinLED, LOW); 
     }
+
+
+  string displayType = getConfigValue("display");
+  if( displayType.empty() )
+    {
+#if defined(SUPPORT_SSD1306)
+      displayType = "SSD1306";
+#elif defined(SUPPORT_ST7789)
+      displayType = "ST7789";
+#else
+      displayType = "NONE";
+#endif
+      setConfigValue("display", displayType);
+    }
+
+  delete m_display;
+
+  if( displayType=="NONE" )
+    m_display = new IECDisplay(); // no display
+#if defined(SUPPORT_SSD1306)
+  else if( displayType=="SSD1306" )
+    m_display = new IECDisplay_SSD1306();
+#endif
+#if defined(SUPPORT_ST7789)
+  else if( displayType=="ST7789" )
+    m_display = new IECDisplay_ST7789();
+#endif
+  else
+    m_display = new IECDisplay(); // no display
 
   m_drive = new VDrive(0);
 
@@ -151,15 +184,23 @@ void IECSidekick64::task()
 }
 
 
+
+void IECSidekick64::clearConfig()
+{
+  LittleFS.remove("/" CONFIGFILENAME);
+  m_config.clear();
+}
+
+
 const string &IECSidekick64::getConfigValue(const string &key)
 {
-  return m_config[key];
+  return m_config[tolower(key)];
 }
 
 
 void IECSidekick64::setConfigValue(const string &key, const string &value, bool write)
 {
-  m_config[key] = value;
+  m_config[tolower(key)] = value;
   if( write ) writeConfig();
 }
 
@@ -185,7 +226,7 @@ void IECSidekick64::readConfig()
                   if( eq!=NULL )
                     {
                       *eq = 0;
-                      m_config[string(line)]=string(eq+1);
+                      m_config[tolower(string(line))]=string(eq+1);
                     }
                 }
             }
@@ -198,7 +239,7 @@ void IECSidekick64::readConfig()
   if( !ok )
     {
       m_config.clear();
-      m_config["Device"] = std::to_string(m_devnr);
+      m_config["device"] = std::to_string(m_devnr);
       writeConfig();
     }
 }
@@ -264,6 +305,18 @@ string IECSidekick64::stripFileName(const char *cname)
 }
 
 
+bool IECSidekick64::isHiddenFile(const char *name)
+{
+  if( name==NULL )
+    return false;
+  else
+    {
+      int len = strlen(name);
+      return len>2 && name[0]=='$' && name[len-1]=='$';
+    }
+}
+
+
 uint8_t IECSidekick64::openDir()
 {
   m_dir = LittleFS.openDir("/");
@@ -299,7 +352,7 @@ bool IECSidekick64::readDir(uint8_t *data)
           m_dirBufferLen = 0;
 
           bool ok = m_dir.next();
-          if( m_dir.fileName()==CONFIGFILENAME ) ok = m_dir.next();
+          while( isHiddenFile(m_dir.fileName().c_str()) ) ok = m_dir.next();
 
           if( ok )
             {
@@ -427,9 +480,15 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
   // skip "0:" prefix
   if( isdigit(constName[0]) && constName[1]==':' ) constName+=2;
 
+  // file name ends at the first 0xA0 ("shifted space")
   strcpy(name, constName);
   char *c = strchr(name, '\xa0');
   if( c!=NULL ) *c = 0;
+
+  // convert "/" and "\" to "-" (we don't support subdirectories)
+  for(c=name; *c!=0; c++)
+    if( *c=='/' || *c=='\\' ) *
+      c = '-';
 
   char *comma = strchr(name, ',');
   if( comma!=NULL )
@@ -641,7 +700,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
           int d = atoi(command+1);
           if( d>=4 && d<=15 )
             {
-              setConfigValue("Device", std::to_string(d));
+              setConfigValue("device", std::to_string(d));
               setDeviceNumber(d);
               m_errorCode = E_OK;
             }
@@ -688,20 +747,29 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       char pattern[17];
       m_errorCode = E_SCRATCHED;
       m_scratched = 0;
+      int scratchFailed = 0;
       
       strncpy(pattern, command+2, 16);
       pattern[16]=0;
-      
+
       m_dir = LittleFS.openDir("/");
       while( m_dir.next() )
         {
           String name = m_dir.fileName();
-          if( name.length()>0 && isMatch(name.c_str(), pattern, 1+2) && LittleFS.remove(name.c_str()) )
+          if( name.length()>0 && isMatch(name.c_str(), pattern, 1+2) )
             {
-              m_scratched++;
-              m_dir.rewind();
+              if( m_dir.isDirectory() ? LittleFS.rmdir(name.c_str()) : LittleFS.remove(name.c_str()) )
+                {
+                  m_scratched++;
+                  m_dir.rewind();
+                }
+              else
+                scratchFailed++;
             }
         }
+
+      if( m_scratched==0 && scratchFailed>0 )
+        m_errorCode = E_WRITEPROT;
     }
   else if( strncmp(command, "N:", 2)==0 )
     {
@@ -758,6 +826,20 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
     m_errorCode = E_OK;
+  else if( strncmp(command, "CFG:", 4)==0 )
+    {
+      command += 4;
+      char *c = strchr(command, '=');
+      if( c==NULL )
+        {
+          string v = getConfigValue(command) + "\r";
+          setStatus(v.c_str(), v.size());
+        }
+      else
+        setConfigValue(string(command).substr(0, c-command), string(c+1));
+
+      m_errorCode = E_OK;
+    }
   else
     m_errorCode = E_INVCMD;
 

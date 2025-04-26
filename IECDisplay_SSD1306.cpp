@@ -1,5 +1,7 @@
 #include "IECDisplay_SSD1306.h"
 
+#ifdef SUPPORT_SSD1306
+
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
@@ -142,3 +144,5 @@ void IECDisplay_SSD1306::update(const char *statusMessage)
       m_progressWidth = 0;
     }
 }
+
+#endif
