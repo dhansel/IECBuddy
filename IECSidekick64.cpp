@@ -317,7 +317,7 @@ bool IECSidekick64::isHiddenFile(const char *name)
 }
 
 
-uint8_t IECSidekick64::openDir()
+uint8_t IECSidekick64::openDir(const char *name)
 {
   m_dir = LittleFS.openDir("/");
   m_dirOpen = true;
@@ -336,7 +336,16 @@ uint8_t IECSidekick64::openDir()
   strcpy(m_dirBuffer+24, "\" 00 2A");
   m_dirBufferLen = 32;
   m_dirBufferPtr = 0;
-  
+
+  if( isdigit(name[1]) && name[2]==':' )
+    m_dirPattern = name+3;
+  else if( name[1] == ':' )
+    m_dirPattern = name+2;
+  else
+    m_dirPattern = name+1;
+
+  if( *m_dirPattern==0 ) m_dirPattern="*";
+
   return E_OK;
 }
 
@@ -352,7 +361,8 @@ bool IECSidekick64::readDir(uint8_t *data)
           m_dirBufferLen = 0;
 
           bool ok = m_dir.next();
-          while( isHiddenFile(m_dir.fileName().c_str()) ) ok = m_dir.next();
+          while( ok && !isMatch(m_dir.fileName().c_str(), m_dirPattern, 1+2) || isHiddenFile(m_dir.fileName().c_str()) )
+            ok = m_dir.next();
 
           if( ok )
             {
@@ -460,10 +470,10 @@ const char *IECSidekick64::findFile(const char *pattern, char ftype)
 
   m_dir = LittleFS.openDir("/");
   while( !found && m_dir.next() )
-    if( m_dir.fileName()!=CONFIGFILENAME || m_dir.next() )
+    if( m_dir.next() )
       {
         strcpy(name, m_dir.fileName().substring(0,21).c_str());
-        found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2);
+        found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2) && !isHiddenFile(name);
       }
 
   return found ? name : NULL;
@@ -520,7 +530,7 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
     {
       if( mode=='R' )
         {
-          if( strcmp(name, CONFIGFILENAME)==0 )
+          if( isHiddenFile(name) )
             return E_NOTFOUND;
           
           if( name[0]==':' ) name++;
@@ -536,7 +546,7 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
         }
       else
         {
-          if( strcmp(name, CONFIGFILENAME)==0 )
+          if( isHiddenFile(name) )
             return E_WRITEPROT;
 
           bool overwrite = false;
@@ -571,7 +581,7 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
   if( m_drive->isOk() )
     m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
   else if( channel==0 && name[0]=='$' )
-    m_errorCode = openDir();
+    m_errorCode = openDir(name);
   else if ( !m_file )
     m_errorCode = openFile(channel, name);
   else
@@ -756,7 +766,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       while( m_dir.next() )
         {
           String name = m_dir.fileName();
-          if( name.length()>0 && isMatch(name.c_str(), pattern, 1+2) )
+          if( name.length()>0 && isMatch(name.c_str(), pattern, 1+2) && !isHiddenFile(name.c_str()) )
             {
               if( m_dir.isDirectory() ? LittleFS.rmdir(name.c_str()) : LittleFS.remove(name.c_str()) )
                 {

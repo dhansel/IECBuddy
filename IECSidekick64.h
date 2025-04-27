@@ -50,7 +50,7 @@ class IECSidekick64 : public IECFileDevice
 
  private:
   uint8_t openFile(uint8_t channel, const char *name);
-  uint8_t openDir();
+  uint8_t openDir(const char *name);
   bool readDir(uint8_t *data);
   bool isMatch(const char *name, const char *pattern, uint8_t extmatch);
   static const char *getStatusMessage(uint8_t statusCode);
@@ -72,7 +72,8 @@ class IECSidekick64 : public IECFileDevice
   bool    m_dirOpen;
   uint8_t m_pinLED, m_pinChipSelect, m_errorCode, m_scratched;
   uint8_t m_dirBufferLen, m_dirBufferPtr;
-  char m_dirBuffer[IEC_BUFSIZE];
+  char    m_dirBuffer[IEC_BUFSIZE];
+  const char *m_dirPattern;
 };
 
 #endif
