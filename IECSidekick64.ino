@@ -47,9 +47,8 @@ extern "C" int printf(const char* format, ... )
 #define PIN_IEC_CLK    3
 #define PIN_IEC_DATA   4
 #define PIN_IEC_RESET  5
-#define PIN_SPI_CS     17
 
-IECSidekick64 iecDrive(DEVICE_NUMBER, PIN_SPI_CS, PIN_LED);
+IECSidekick64 iecDrive(DEVICE_NUMBER, PIN_LED);
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_DATA, PIN_IEC_RESET);
 
 

@@ -15,7 +15,7 @@ typedef std::unordered_map<std::string, std::string> ConfigType;
 class IECSidekick64 : public IECFileDevice
 {
  public: 
-  IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinLED);
+  IECSidekick64(uint8_t devnum, uint8_t pinLED);
 
   virtual void getStatus(char *buffer, uint8_t bufferSize);
   virtual void execute(const char *command, uint8_t len);
@@ -70,7 +70,7 @@ class IECSidekick64 : public IECFileDevice
 
   int     m_curFileChannel;
   bool    m_dirOpen;
-  uint8_t m_pinLED, m_pinChipSelect, m_errorCode, m_scratched;
+  uint8_t m_pinLED, m_errorCode, m_scratched;
   uint8_t m_dirBufferLen, m_dirBufferPtr;
   char    m_dirBuffer[IEC_BUFSIZE];
   const char *m_dirPattern;

@@ -52,11 +52,10 @@ static void diskChangeButtonFcn()
 }
 
 
-IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinChipSelect, uint8_t pinLED) :
+IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinLED) :
   IECFileDevice(devnum)
 {
   m_pinLED = pinLED;
-  m_pinChipSelect = pinChipSelect;
   m_dirOpen = false;
   m_drive = NULL;
   m_curFileChannel = -1;
@@ -68,8 +67,6 @@ void IECSidekick64::begin()
 {
   pinMode(BUTTON_PIN, INPUT_PULLUP);
   attachInterrupt(BUTTON_PIN, diskChangeButtonFcn, CHANGE);
-
-  if( m_pinChipSelect<0xFF ) pinMode(m_pinChipSelect, OUTPUT);
 
   unsigned long ledTestEnd = millis() + 500;
   if( m_pinLED<0xFF ) { pinMode(m_pinLED, OUTPUT); digitalWrite(m_pinLED, HIGH); }
