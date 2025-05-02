@@ -467,11 +467,10 @@ const char *IECSidekick64::findFile(const char *pattern, char ftype)
 
   m_dir = LittleFS.openDir("/");
   while( !found && m_dir.next() )
-    if( m_dir.next() )
-      {
-        strcpy(name, m_dir.fileName().substring(0,21).c_str());
-        found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2) && !isHiddenFile(name);
-      }
+    {
+      strcpy(name, m_dir.fileName().substring(0,21).c_str());
+      found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2) && !isHiddenFile(name);
+    }
 
   return found ? name : NULL;
 }
