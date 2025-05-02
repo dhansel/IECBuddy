@@ -92,6 +92,8 @@ void IECDisplay_ST7789::startProgress(int nbytestotal)
 
 void IECDisplay_ST7789::updateProgress(int nbytes)
 {
+  m_curFileBytesRead += nbytes;
+
   if( m_curFileSize>0 )
     {
       int w = (m_display->width() * m_curFileBytesRead) / m_curFileSize;
@@ -100,8 +102,28 @@ void IECDisplay_ST7789::updateProgress(int nbytes)
           m_display->fillRect(m_progressWidth, m_display->height()-5, w-m_progressWidth, 5, RGB565_WHITE);
           m_progressWidth = w;
         }
+    }
+  else
+    {
+      const int markerSize = 16;
+      int width = m_display->width()-markerSize;
+      int np = ((width*2) * (m_curFileBytesRead & 4095)) / 4096;
+      int pp = m_progressWidth;
+      if( np != pp )
+        {
+          m_progressWidth = np;
+          if( np >= width ) np = width*2-1-np;
+          if( pp >= width ) pp = width*2-1-pp;
 
-      m_curFileBytesRead += nbytes;
+          // draw marker
+          m_display->fillRect(np, m_display->height()-5, markerSize, 5, RGB565_WHITE);
+
+          // erase pixels before/after marker
+          if( np>pp )
+            m_display->fillRect(pp, m_display->height()-5, np-pp, 5, RGB565_BLACK);
+          else if( np<pp )
+            m_display->fillRect(np+markerSize, m_display->height()-5, pp-np, 5, RGB565_BLACK);
+        }
     }
 }
 

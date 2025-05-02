@@ -81,6 +81,8 @@ void IECDisplay_SSD1306::startProgress(int nbytestotal)
 
 void IECDisplay_SSD1306::updateProgress(int nbytes)
 {
+  m_curFileBytesRead += nbytes;
+
   if( m_curFileSize>0 )
     {
       int w = (m_display->width() * m_curFileBytesRead) / m_curFileSize;
@@ -101,8 +103,43 @@ void IECDisplay_SSD1306::updateProgress(int nbytes)
             }
           Wire.endTransmission();
         }
+    }
+  else
+    {
+      // display is 128 pixels wide, marker is 8 pixels wide
+      // => possible marker locations: 0..119
+      // marker also moves backwards
+      // => full marker cycle: 0..239
+      // one full cycle represents 4800 bytes
+      // => one pixel represents 20 bytes
+      int np = (m_curFileBytesRead % 4800) / 20;
+      int pp = m_progressWidth;
+      if( np != pp )
+        {
+          m_progressWidth = np;
+          if( np >= 120 ) np = 239-np;
+          if( pp >= 120 ) pp = 239-pp;
 
-      m_curFileBytesRead += nbytes;
+          int c = pp < np ? pp : np;
+          m_display->ssd1306_command(0xB7);          // bottom row
+          m_display->ssd1306_command(c & 0x0F);      // column low nybble
+          m_display->ssd1306_command(0x10 | (c/16)); // column high nybble
+
+          Wire.beginTransmission(DISPLAY_SSD1306_ADDR);
+          Wire.write(0x40); // "write data"
+
+          // clear pixels before marker (if any)
+          while( c<np ) { Wire.write(0x00); c++; }
+          
+          // draw marker
+          for(int i=0; i<8; i++) Wire.write(0xF0);
+
+          // clear pixels after marker (if any)
+          pp = min(pp, 120);
+          while( c<pp ) { Wire.write(0x00); c++; }
+
+          Wire.endTransmission();
+        }
     }
 }
 

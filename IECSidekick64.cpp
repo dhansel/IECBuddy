@@ -637,21 +637,23 @@ uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize
 
 uint8_t IECSidekick64::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi)
 {
+  uint8_t n = 0;
+
   if( m_drive->isFileOk(channel) )
     {
-      size_t n = bufferSize;
-      if( !m_drive->write(channel, buffer, &n) )
-        {
-          m_errorCode = E_VDRIVE;
-          return 0;
-        }
-
-      return n;
+      size_t nn = bufferSize;
+      if( m_drive->write(channel, buffer, &nn) )
+        n = nn;
+      else
+        m_errorCode = E_VDRIVE;
     }
   else if( m_file )
-    return m_file.write(buffer, bufferSize);
-  else
-    return 0;
+    n = m_file.write(buffer, bufferSize);
+
+  if( channel==m_curFileChannel )
+    m_display->updateProgress(n);
+
+  return n;
 }
 
 
