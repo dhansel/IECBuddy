@@ -17,6 +17,7 @@ using namespace std;
 #define E_INVNAME    33
 #define E_NOTFOUND   62
 #define E_EXISTS     63
+#define E_MISMATCH   64
 #define E_SPLASH     73
 #define E_NOTREADY   74
 #define E_TOOMANY    98
@@ -829,7 +830,20 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     {
       strncpy(m_dirBuffer, command+cdcmd, IEC_BUFSIZE);
       m_dirBuffer[IEC_BUFSIZE-1]=0;
-      m_errorCode = mountDiskImage(m_dirBuffer) ? E_OK : E_NOTFOUND;
+
+      if( !LittleFS.exists(m_dirBuffer) )
+        {
+          const char *name = findFile(m_dirBuffer, 0);
+          if( name!=NULL ) strcpy(m_dirBuffer, name);
+        }
+
+      if( mountDiskImage(m_dirBuffer) )
+        m_errorCode = E_OK;
+      else if( LittleFS.exists(m_dirBuffer) )
+        m_errorCode = E_MISMATCH;
+      else
+        m_errorCode = E_NOTFOUND;
+
       updateDisplay();
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
@@ -870,6 +884,7 @@ const char *IECSidekick64::getStatusMessage(uint8_t statusCode)
     case E_NOTREADY:             { message = "DRIVE NOT READY"; break; }
     case E_NOTFOUND:             { message = "FILE NOT FOUND"; break; }
     case E_EXISTS:               { message = "FILE EXISTS"; break; }
+    case E_MISMATCH:             { message = "FILE TYPE MISMATCH"; break; }
     case E_INVCMD:
     case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
     case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
