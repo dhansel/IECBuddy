@@ -719,37 +719,26 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       else
         m_errorCode = E_INVCMD;
     }
-  else if( m_drive->isOk() )
+  else if( m_drive->isOk() && cdcmd==0 )
     {
-      if( cdcmd<0 )
+      int r = m_drive->execute(command, len);
+      if( r==2 )
         {
-          // CD "up"
-          m_drive->closeDiskImage(); 
-          m_errorCode = E_OK; 
-          m_display->setCurrentImageName("");
-          updateDisplay();
+          // this was a command that placed its response in the status buffer
+          uint8_t buf[IECFILEDEVICE_STATUS_BUFFER_SIZE];
+          size_t len = m_drive->getStatusBuffer(buf, IECFILEDEVICE_STATUS_BUFFER_SIZE);
+          IECFileDevice::setStatus((const char *) buf, len);
+          m_errorCode = E_OK;
         }
-      else 
-        {
-          int r = m_drive->execute(command, len);
-          if( r==2 )
-            {
-              // this was a command that placed its response in the status buffer
-              uint8_t buf[IECFILEDEVICE_STATUS_BUFFER_SIZE];
-              size_t len = m_drive->getStatusBuffer(buf, IECFILEDEVICE_STATUS_BUFFER_SIZE);
-              IECFileDevice::setStatus((const char *) buf, len);
-              m_errorCode = E_OK;
-            }
-          else
-            m_errorCode = r==0 ? E_VDRIVE : E_OK;
+      else
+        m_errorCode = r==0 ? E_VDRIVE : E_OK;
 
-          // when executing a "P" (position relative file) command we need
-          // to clear the read buffer of the channel for which this command
-          // is issued, otherwise remaining characters in the buffer will be
-          // prefixed to the data from the new record
-          if( command[0]=='P' && len>=2 )
-            clearReadBuffer(command[1] & 0x0f);
-        }
+      // when executing a "P" (position relative file) command we need
+      // to clear the read buffer of the channel for which this command
+      // is issued, otherwise remaining characters in the buffer will be
+      // prefixed to the data from the new record
+      if( command[0]=='P' && len>=2 )
+        clearReadBuffer(command[1] & 0x0f);
     }
   else if( strncmp(command, "S:", 2)==0 )
     {
@@ -824,25 +813,48 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     }
   else if( cdcmd<0 )
     {
-      // CD "up" (no effect since no disk image mounted)
+      if( m_drive->isOk() )
+        {
+          // CD "up"
+          m_drive->closeDiskImage();
+          m_display->setCurrentImageName("");
+          updateDisplay();
+        }
+
+      m_errorCode = E_OK;
     }
   else if( cdcmd>0 )
     {
-      strncpy(m_dirBuffer, command+cdcmd, IEC_BUFSIZE);
-      m_dirBuffer[IEC_BUFSIZE-1]=0;
-
-      if( !LittleFS.exists(m_dirBuffer) )
+      if( m_drive->isOk() && command[cdcmd]=='/' )
         {
-          const char *name = findFile(m_dirBuffer, 0);
-          if( name!=NULL ) strcpy(m_dirBuffer, name);
+          m_drive->closeDiskImage();
+          m_display->setCurrentImageName("");
         }
 
-      if( mountDiskImage(m_dirBuffer) )
-        m_errorCode = E_OK;
-      else if( LittleFS.exists(m_dirBuffer) )
-        m_errorCode = E_MISMATCH;
+      if( m_drive->isOk() )
+        {
+          // can't mount a disk image from within a disk image
+          m_errorCode = E_MISMATCH;
+        }
       else
-        m_errorCode = E_NOTFOUND;
+        {
+          if( command[cdcmd]=='/' ) cdcmd++;
+          strncpy(m_dirBuffer, command+cdcmd, IEC_BUFSIZE);
+          m_dirBuffer[IEC_BUFSIZE-1]=0;
+
+          if( !LittleFS.exists(m_dirBuffer) )
+            {
+              const char *name = findFile(m_dirBuffer, 0);
+              if( name!=NULL ) strcpy(m_dirBuffer, name);
+            }
+
+          if( mountDiskImage(m_dirBuffer) )
+            m_errorCode = E_OK;
+          else if( LittleFS.exists(m_dirBuffer) )
+            m_errorCode = E_MISMATCH;
+          else
+            m_errorCode = E_NOTFOUND;
+        }
 
       updateDisplay();
     }
