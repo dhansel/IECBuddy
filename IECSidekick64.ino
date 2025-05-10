@@ -49,7 +49,14 @@ extern "C" int printf(const char* format, ... )
 #define PIN_IEC_RESET  5
 
 IECSidekick64 iecDrive(DEVICE_NUMBER, PIN_LED);
+
+#ifdef USE_LINE_DRIVERS
+#define PIN_IEC_CLK_OUT  26
+#define PIN_IEC_DATA_OUT 27
+IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_CLK_OUT, PIN_IEC_DATA, PIN_IEC_DATA_OUT, PIN_IEC_RESET);
+#else
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_DATA, PIN_IEC_RESET);
+#endif
 
 
 // the "mytime" function is used to implement tracking of whether a file was
@@ -142,6 +149,9 @@ void execDriveCommand()
   string cmd;
   if( recv_string(cmd) )
     {
+#if DEBUG>0
+      Serial1.printf("command: %s\r\n", cmd.c_str());
+#endif
       if( iecDrive.getMountedImageName()==NULL )
         iecDrive.execute(cmd.c_str(), cmd.length());
       else
