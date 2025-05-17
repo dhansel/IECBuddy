@@ -2,8 +2,8 @@
 #define PINS_H
 
 // GPIO 0/1 are UART TX/RX, reserved for debugging
-// On Pi Pico,    GPIO 16+28 are currently not used
-// On RP2040-One, GPIO 28+29 are currently not used
+// On Pi Pico,    GPIO 16+22+28 are currently not used (GPIO 23-25,29 not available on board)
+// On RP2040-One, GPIO 9-13,28+29 are currently not used (GPIO 16-25 not available on board)
 
 // The ATN/CLK/DATA IEC connections are the only required pins
 // (RESET can be commented out if not connected)
