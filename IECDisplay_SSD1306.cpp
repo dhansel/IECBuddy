@@ -1,4 +1,5 @@
 #include "IECDisplay_SSD1306.h"
+#include "Pins.h"
 
 #ifdef SUPPORT_SSD1306
 
@@ -9,15 +10,12 @@
 using namespace std;
 
 #define DISPLAY_SSD1306_ADDR     0x3C
-#define DISPLAY_SSD1306_PIN_SDA  20
-#define DISPLAY_SSD1306_PIN_SCL  21
-
 
 
 IECDisplay_SSD1306::IECDisplay_SSD1306() :
   IECDisplay()
 {
-  m_display = new Adafruit_SSD1306(128, 64, &Wire, -1);
+  m_display = new Adafruit_SSD1306(128, 64, &PIN_SSD1306_WIRE, -1);
 }
 
 
@@ -31,8 +29,9 @@ void IECDisplay_SSD1306::begin()
 {
   IECDisplay::begin();
 
-  Wire.setSDA(DISPLAY_SSD1306_PIN_SDA);
-  Wire.setSCL(DISPLAY_SSD1306_PIN_SCL);
+  PIN_SSD1306_WIRE.setSDA(PIN_SSD1306_I2C_SDA);
+  PIN_SSD1306_WIRE.setSCL(PIN_SSD1306_I2C_SCL);
+  PIN_SSD1306_WIRE.begin();
 
   m_display->begin(SSD1306_SWITCHCAPVCC, DISPLAY_SSD1306_ADDR);
   m_display->cp437(true);
@@ -94,14 +93,14 @@ void IECDisplay_SSD1306::updateProgress(int nbytes)
           // the entire display contents. Instead we placed the "cursor" at the
           // lower-left of the display during "open" and now are just sending 0xF0
           // data, each of which enables the bottom 4 pixels of the next column.
-          Wire.beginTransmission(DISPLAY_SSD1306_ADDR);
-          Wire.write(0x40); // "write data"
+          PIN_SSD1306_WIRE.beginTransmission(DISPLAY_SSD1306_ADDR);
+          PIN_SSD1306_WIRE.write(0x40); // "write data"
           while( m_progressWidth < w )
             {
-              Wire.write(0xF0); // one column with bottom 4 pixels set
+              PIN_SSD1306_WIRE.write(0xF0); // one column with bottom 4 pixels set
               m_progressWidth++;
             }
-          Wire.endTransmission();
+          PIN_SSD1306_WIRE.endTransmission();
         }
     }
   else
@@ -125,20 +124,20 @@ void IECDisplay_SSD1306::updateProgress(int nbytes)
           m_display->ssd1306_command(c & 0x0F);      // column low nybble
           m_display->ssd1306_command(0x10 | (c/16)); // column high nybble
 
-          Wire.beginTransmission(DISPLAY_SSD1306_ADDR);
-          Wire.write(0x40); // "write data"
+          PIN_SSD1306_WIRE.beginTransmission(DISPLAY_SSD1306_ADDR);
+          PIN_SSD1306_WIRE.write(0x40); // "write data"
 
           // clear pixels before marker (if any)
-          while( c<np ) { Wire.write(0x00); c++; }
+          while( c<np ) { PIN_SSD1306_WIRE.write(0x00); c++; }
           
           // draw marker
-          for(int i=0; i<8; i++) Wire.write(0xF0);
+          for(int i=0; i<8; i++) PIN_SSD1306_WIRE.write(0xF0);
 
           // clear pixels after marker (if any)
           pp = min(pp, 120);
-          while( c<pp ) { Wire.write(0x00); c++; }
+          while( c<pp ) { PIN_SSD1306_WIRE.write(0x00); c++; }
 
-          Wire.endTransmission();
+          PIN_SSD1306_WIRE.endTransmission();
         }
     }
 }

@@ -1,5 +1,6 @@
 #include "IECSidekick64.h"
 #include "IECDisplay.h"
+#include "Pins.h"
 #include "src/IECDevice/IECBusHandler.h"
 #include "protocol.h"
 #include <algorithm>
@@ -41,18 +42,16 @@ extern "C" int printf(const char* format, ... )
 
 
 // IEC bus device number
-#define DEVICE_NUMBER  9
-
-#define PIN_IEC_ATN    2
-#define PIN_IEC_CLK    3
-#define PIN_IEC_DATA   4
-#define PIN_IEC_RESET  5
+#define DEVICE_NUMBER  8
 
 IECSidekick64 iecDrive(DEVICE_NUMBER, PIN_LED);
 
+// if RESET pin is not defined, set it to 0xFF (not assigned)
+#ifndef PIN_IEC_RESET
+#define PIN_IEC_RESET 0xFF
+#endif
+
 #ifdef USE_LINE_DRIVERS
-#define PIN_IEC_CLK_OUT  26
-#define PIN_IEC_DATA_OUT 27
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_CLK_OUT, PIN_IEC_DATA, PIN_IEC_DATA_OUT, PIN_IEC_RESET);
 #else
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_DATA, PIN_IEC_RESET);
@@ -559,6 +558,11 @@ void setup()
 
   LittleFS.setTimeCallback(mytime);
 
+#ifdef SUPPORT_DOLPHIN
+  iecBus.setDolphinDosPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
+                           PIN_PAR_PB0, PIN_PAR_PB1, PIN_PAR_PB2, PIN_PAR_PB3, 
+                           PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
+#endif
   iecBus.attachDevice(&iecDrive);
   iecBus.begin();
 }

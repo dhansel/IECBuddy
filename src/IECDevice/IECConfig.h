@@ -19,10 +19,14 @@
 #ifndef IECCONFIG_H
 #define IECCONFIG_H
 
+#include "../../Pins.h"
+
 // un-comment this if you are using 74LS07 open-collector drivers for
 // the CLK/DATA lines. If so, the IECBusHandler constructor requires
 // two extra pins for the CLK/DATA output signals
-//#define USE_LINE_DRIVERS
+#if defined(PIN_IEC_CLK_OUT) && defined(PIN_IEC_DATA_OUT)
+#define USE_LINE_DRIVERS
+#endif
 
 // un-comment this IN ADDITION to USE_LINE_DRIVERS if you are using inverted
 // line drivers (such as 74LS06)
@@ -32,7 +36,9 @@
 // for the corresponding fast-load protocols
 #define SUPPORT_JIFFY
 #define SUPPORT_EPYX
+#if defined(PIN_PAR_FLAG2) && defined(PIN_PAR_PC2)
 #define SUPPORT_DOLPHIN
+#endif
 
 // un-comment this to use a XRA1405 port expander for the 8-bit parallel cable
 // instead of connecting the parallel pins directly to the microcontroller

@@ -1,12 +1,11 @@
 #include "IECSidekick64.h"
 #include "IECDisplay_SSD1306.h"
 #include "IECDisplay_ST7789.h"
+#include "Pins.h"
 #include <LittleFS.h>
 #include <algorithm>
 
 using namespace std;
-
-#define BUTTON_PIN       22
 
 #define E_OK          0
 #define E_SCRATCHED   1
@@ -29,6 +28,16 @@ using namespace std;
 #define min(a,b) ((a)<(b) ? (a) : (b))
 #endif
 
+#ifdef PIN_LED_IS_NEOPIXEL_RGB
+#include <Adafruit_NeoPixel.h>
+static Adafruit_NeoPixel s_led(1, 16, NEO_RGB + NEO_KHZ800);
+#endif
+
+#define LED_OFF   0
+#define LED_RED   1
+#define LED_GREEN 2
+#define LED_BLUE  3
+
 // ----------------------------------------------------------------------------------------------
 
 static string tolower(string s)
@@ -43,7 +52,7 @@ static void diskChangeButtonFcn()
   static unsigned long debounceTime = 0;
   static bool debounceState = true;
 
-  bool state = digitalRead(BUTTON_PIN);
+  bool state = digitalRead(PIN_BUTTON);
   if( state!=debounceState && millis()>debounceTime )
     {
       debounceState = state;
@@ -66,26 +75,27 @@ IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinLED) :
 
 void IECSidekick64::begin()
 {
-  pinMode(BUTTON_PIN, INPUT_PULLUP);
-  attachInterrupt(BUTTON_PIN, diskChangeButtonFcn, CHANGE);
+  pinMode(PIN_BUTTON, INPUT_PULLUP);
+  attachInterrupt(PIN_BUTTON, diskChangeButtonFcn, CHANGE);
 
   unsigned long ledTestEnd = millis() + 500;
-  if( m_pinLED<0xFF ) { pinMode(m_pinLED, OUTPUT); digitalWrite(m_pinLED, HIGH); }
 
+  if( m_pinLED<0xFF ) 
+    {
+#ifdef PIN_LED_IS_NEOPIXEL_RGB
+      s_led.setPin(m_pinLED); 
+#else
+      pinMode(m_pinLED, OUTPUT); 
+#endif
+    }
+
+  setLEDState(LED_GREEN);
   m_errorCode = E_SPLASH;
   LittleFS.begin();
   readConfig();
 
   int d = std::atoi(getConfigValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
-
-  if( m_pinLED<0xFF ) 
-    {
-      unsigned long t = millis();
-      if( t<ledTestEnd ) delay(ledTestEnd-t);
-      digitalWrite(m_pinLED, LOW); 
-    }
-
 
   string displayType = getConfigValue("display");
   if( displayType.empty() )
@@ -120,6 +130,13 @@ void IECSidekick64::begin()
   IECFileDevice::begin();
   m_display->begin();
   updateDisplay();
+
+  if( m_pinLED<0xFF ) 
+    {
+      unsigned long t = millis();
+      if( t<ledTestEnd ) delay(ledTestEnd-t);
+      setLEDState(LED_OFF);
+    }
 }
 
 
@@ -133,12 +150,12 @@ void IECSidekick64::task()
         {
           bool active = m_dirOpen || (bool) m_file;
           active |= m_drive->getNumOpenChannels()>0;
-          digitalWrite(m_pinLED, active);
+          setLEDState(active ? LED_GREEN : LED_OFF);
         }
       else if( millis()>nextblink )
         {
-          digitalWrite(m_pinLED, !digitalRead(m_pinLED));
-          nextblink += 500;
+          setLEDState((nextblink&1) ? LED_RED : LED_OFF);
+          nextblink += 251;
         }
     }
 
@@ -684,7 +701,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
 {
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
-  digitalWrite(m_pinLED, HIGH);
+  setLEDState(LED_GREEN);
 
   // detect whether this is a "CD" command (with some flexibility in syntax), "cdcmd" will be
   //  0: if not a "CD" command
@@ -878,7 +895,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
     m_errorCode = E_INVCMD;
 
   if( m_errorCode!=E_OK ) updateDisplay();
-  digitalWrite(m_pinLED, LOW);
+  setLEDState(LED_OFF);
 }
 
 
@@ -972,7 +989,7 @@ const char *IECSidekick64::getMountedImageName()
 void IECSidekick64::reset()
 {
   unsigned long ledTestEnd = millis() + 250;
-  if( m_pinLED<0xFF ) digitalWrite(m_pinLED, HIGH);
+  setLEDState(LED_GREEN);
 
   IECFileDevice::reset();
 
@@ -988,7 +1005,7 @@ void IECSidekick64::reset()
     { 
       unsigned long t = millis();
       if( t<ledTestEnd ) delay(ledTestEnd-t);
-      digitalWrite(m_pinLED, LOW); 
+      setLEDState(LED_OFF);
     }
 
   updateDisplay();
@@ -1001,8 +1018,33 @@ void IECSidekick64::updateDisplay()
   if( m_errorCode==E_VDRIVE )
     strncpy(buf, m_drive->getStatusString(), 22);
   else
-    snprintf(buf, 22, "%02i,%s,00,00", m_errorCode, getStatusMessage(m_errorCode));
+    {
+      int sec = m_errorCode==E_SCRATCHED ? m_scratched : 0;
+      int code = m_errorCode==E_SPLASH ? E_OK : m_errorCode;
+      snprintf(buf, 22, "%02i,%s,00,%02i", code, getStatusMessage(code),sec);
+    }
 
   buf[21] = 0;
   m_display->update(buf);
+}
+
+
+void IECSidekick64::setLEDState(int color)
+{
+  if( m_pinLED<0xFF ) 
+    {
+#ifdef PIN_LED_IS_NEOPIXEL_RGB
+      switch( color )
+        {
+        case LED_OFF:   s_led.clear(); break;
+        case LED_RED:   s_led.setPixelColor(0,255,0,0); break;
+        case LED_GREEN: s_led.setPixelColor(0,0,255,0); break;
+        case LED_BLUE:  s_led.setPixelColor(0,0,0,255); break;
+        default:        s_led.setPixelColor(0,255,255,255); break;
+        }
+      s_led.show();
+#else
+      digitalWrite(m_pinLED, color!=LED_OFF);
+#endif
+    }
 }

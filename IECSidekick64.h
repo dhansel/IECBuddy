@@ -62,6 +62,8 @@ class IECSidekick64 : public IECFileDevice
   std::string stripFileName(const char *cname);
   bool isHiddenFile(const char *fname);
 
+  void setLEDState(int color);
+
   VDrive *m_drive;
   IECDisplay *m_display;
 

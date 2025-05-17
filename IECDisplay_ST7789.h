@@ -2,9 +2,11 @@
 #define IECDISPLAY_ST7789
 
 #include "IECDisplay.h"
+#include "Pins.h"
 
-// if enabled, the "GFX Library for Arduino" library must be installed in the Arduino IDE 
-//#define SUPPORT_ST7789
+#ifdef PIN_ST7789_SPI
+#define SUPPORT_ST7789
+#endif
 
 class Arduino_ST7789m;
 

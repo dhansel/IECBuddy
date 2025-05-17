@@ -1,13 +1,10 @@
 #include "IECDisplay_ST7789.h"
+#include "Pins.h"
 
 #ifdef SUPPORT_ST7789
 #include <Arduino_GFX_Library.h>
 
 using namespace std;
-
-#define DISPLAY_ST7789_PIN_DC    20
-#define DISPLAY_ST7789_PIN_RST   21 // GFX_NOT_DEFINED
-
 
 // derive our own ST7789 class so we can access parameters that are 
 // not available otherwise (e.g. the SPI mode)
@@ -33,8 +30,11 @@ public:
 
 IECDisplay_ST7789::IECDisplay_ST7789()
 {
-  Arduino_DataBus *bus = new Arduino_HWSPI(DISPLAY_ST7789_PIN_DC);
-  m_display = new Arduino_ST7789m(bus, DISPLAY_ST7789_PIN_RST);
+  Arduino_DataBus *bus = new Arduino_HWSPI(PIN_ST7789_DC, GFX_NOT_DEFINED, &PIN_ST7789_SPI);
+  gpio_set_function(PIN_ST7789_SPI_SCL,  GPIO_FUNC_SPI);
+  gpio_set_function(PIN_ST7789_SPI_COPI, GPIO_FUNC_SPI);
+
+  m_display = new Arduino_ST7789m(bus, PIN_ST7789_RES);
   m_doClear = true;
 }
 
@@ -48,6 +48,7 @@ IECDisplay_ST7789::~IECDisplay_ST7789()
 void IECDisplay_ST7789::begin()
 {
   m_display->begin(GFX_NOT_DEFINED /* SPI speed */, SPI_MODE3);
+
   m_display->invertDisplay(true);
   m_display->setTextWrap(false);
   m_display->setTextColor(RGB565_WHITE);
@@ -147,6 +148,7 @@ void IECDisplay_ST7789::update(const char *statusMessage)
   if( image!=s_image )
     {
       m_display->setTextSize(3);
+      m_display->setTextColor(RGB565_YELLOW);
       m_display->setCursor(0,m_display->getTextLineHeight());
       m_display->clearCurrentLine();
       m_display->println(image.c_str());
@@ -156,6 +158,7 @@ void IECDisplay_ST7789::update(const char *statusMessage)
   if( m_curFileName!=s_file )
     {
       m_display->setTextSize(3);
+      m_display->setTextColor(RGB565_WHITE);
       m_display->setCursor(0, 2*m_display->getTextLineHeight());
       m_display->clearCurrentLine();
       m_display->print(m_curFileName.c_str());
@@ -165,7 +168,15 @@ void IECDisplay_ST7789::update(const char *statusMessage)
   string status(statusMessage==NULL ? "" : statusMessage);
   if( status!=s_status )
     {
+      int color = RGB565_WHITE;
+      if( isdigit(statusMessage[0]) && isdigit(statusMessage[1]) )
+        {
+          int code = (statusMessage[0]-'0')*10 + (statusMessage[1]-'0');
+          color = code < 20 ? RGB565_GREEN : RGB565_RED;
+        }
+
       m_display->setTextSize(2);
+      m_display->setTextColor(color);
       m_display->setCursor(0, m_display->height()-m_display->getTextLineHeight()-10);
       m_display->clearCurrentLine();
       m_display->print(status.c_str());

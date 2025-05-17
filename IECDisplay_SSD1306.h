@@ -2,9 +2,11 @@
 #define IECDISPLAY_SSD1306
 
 #include "IECDisplay.h"
+#include "Pins.h"
 
-// if enabled, the "Adafruit SSD1306" library must be installed in the Arduino IDE
+#ifdef PIN_SSD1306_WIRE
 #define SUPPORT_SSD1306
+#endif
 
 class Adafruit_SSD1306;
 
