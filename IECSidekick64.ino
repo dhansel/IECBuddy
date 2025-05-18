@@ -358,6 +358,15 @@ void receiveFile()
 
       if( status==ST_OK )
         {
+          // make sure that either the file name has a .XYZ extension or it is of form "$...$" (hidden file)
+          int len = fileName.length();
+          if( len<4 || fileName[len-4]!='.' || !isalphanum(fileName[len-3]) || !isalphanum(fileName[len-2]) || !isalphanum(fileName[len-1]) )
+            if( len<2 || fileName[0]!='$' || fileName[len-1]!='$' )
+              status = ST_INVALID_FILE;
+        }
+
+      if( status==ST_OK )
+        {
           // check whether a file with this name already exists
           if( LittleFS.exists(fileName.c_str()) )
             status = ST_FILE_EXISTS;

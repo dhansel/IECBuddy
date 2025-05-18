@@ -22,6 +22,11 @@ using namespace std;
 #define E_TOOMANY    98
 #define E_VDRIVE     99
 
+#define FT_NONE      0x00
+#define FT_PRG       0x01
+#define FT_SEQ       0x02
+#define FT_ANY       0xFF
+
 #define CONFIGFILENAME "$CONFIG$"
 
 #ifndef min
@@ -127,9 +132,13 @@ void IECSidekick64::begin()
 
   m_drive = new VDrive(0);
 
-  IECFileDevice::begin();
   m_display->begin();
   updateDisplay();
+
+  // call this after m_display->begin() since this sets all IEC and parallel cable
+  // pins to GPIO mode, ensuring that any pins that were previously set as I2C/SPI
+  // (because of defaults) get set to GPIO mode.
+  IECFileDevice::begin();
 
   if( m_pinLED<0xFF ) 
     {
@@ -376,7 +385,7 @@ bool IECSidekick64::readDir(uint8_t *data)
           m_dirBufferLen = 0;
 
           bool ok = m_dir.next();
-          while( ok && !isMatch(m_dir.fileName().c_str(), m_dirPattern, 1+2) || isHiddenFile(m_dir.fileName().c_str()) )
+          while( ok && !isMatch(m_dir.fileName().c_str(), m_dirPattern, FT_ANY) || isHiddenFile(m_dir.fileName().c_str()) )
             ok = m_dir.next();
 
           if( ok )
@@ -392,19 +401,26 @@ bool IECSidekick64::readDir(uint8_t *data)
 
               m_dirBuffer[m_dirBufferLen++] = '"';
               String name = m_dir.fileName();
-              size_t n = min(name.length(), 16);
+              size_t n = min(name.length(), 20);
               if( n>0 )
                 {
                   strncpy(m_dirBuffer+m_dirBufferLen, name.c_str(), n);
                   m_dirBuffer[m_dirBufferLen+n] = 0;
 
-                  const char *ftype = NULL;
-                  if( n>4 && strcasecmp(m_dirBuffer+m_dirBufferLen+n-4, ".prg")==0 )
-                    { n -= 4; ftype = "PRG"; }
-                  else if( n>4 && strcasecmp(m_dirBuffer+m_dirBufferLen+n-4, ".seq")==0 )
-                    { n -= 4; ftype = "SEQ"; }
-                  else if( n>17 )
-                    n = 17;
+                  char ftype[4];
+                  strcpy(ftype, "???");
+                  if( n>4 && m_dirBuffer[m_dirBufferLen+n-4]=='.' &&
+                      isalphanum(m_dirBuffer[m_dirBufferLen+n-3]) &&
+                      isalphanum(m_dirBuffer[m_dirBufferLen+n-2]) &&
+                      isalphanum(m_dirBuffer[m_dirBufferLen+n-1]) )
+                    {
+                      ftype[0] = toupper(m_dirBuffer[m_dirBufferLen+n-3]);
+                      ftype[1] = toupper(m_dirBuffer[m_dirBufferLen+n-2]);
+                      ftype[2] = toupper(m_dirBuffer[m_dirBufferLen+n-1]);
+                      n -= 4;
+                    }
+                  else if( n>16 )
+                    n = 16;
                   
                   m_dirBufferLen += n;
                   m_dirBuffer[m_dirBufferLen++] = '"';
@@ -451,19 +467,36 @@ bool IECSidekick64::readDir(uint8_t *data)
 }
 
 
-bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t extmatch)
+bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t ftypes)
 {
   signed char found = -1;
 
   for(uint8_t i=0; found<0; i++)
     {
       if( pattern[i]=='*' )
-        found = 1;
+        {
+          if( ftypes==FT_ANY )
+            found = 1;
+          else
+            {
+              while( name[i]!=0 && name[i]!='.' ) i++;
+              if( name[i]==0 )
+                found = 0;
+              else if( (ftypes & FT_PRG) && strcasecmp(name+i+1, "prg")==0 )
+                found = 1;
+              else if( (ftypes & FT_SEQ) && strcasecmp(name+i+1, "seq")==0 )
+                found = 1;
+              else
+                found = 0;
+            }
+        }
       else if( pattern[i]==0 && name[i]=='.' )
         {
-          if( (extmatch & 1) && strcasecmp(name+i+1, "prg")==0 )
+          if( ftypes==FT_ANY )
             found = 1;
-          else if( (extmatch & 2) && strcasecmp(name+i+1, "seq")==0 )
+          else if( (ftypes & FT_PRG) && strcasecmp(name+i+1, "prg")==0 )
+            found = 1;
+          else if( (ftypes & FT_SEQ) && strcasecmp(name+i+1, "seq")==0 )
             found = 1;
           else
             found = 0;
@@ -478,7 +511,7 @@ bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t extma
 }
 
 
-const char *IECSidekick64::findFile(const char *pattern, char ftype)
+const char *IECSidekick64::findFile(const char *pattern, uint8_t ftypes)
 {
   bool found = false;
   static char name[22];
@@ -487,7 +520,7 @@ const char *IECSidekick64::findFile(const char *pattern, char ftype)
   while( !found && m_dir.next() )
     {
       strcpy(name, m_dir.fileName().substring(0,21).c_str());
-      found = !m_dir.isDirectory() && isMatch(name, pattern, ftype=='P' ? 1 : 2) && !isHiddenFile(name);
+      found = !m_dir.isDirectory() && isMatch(name, pattern, ftypes) && !isHiddenFile(name);
     }
 
   return found ? name : NULL;
@@ -497,91 +530,103 @@ const char *IECSidekick64::findFile(const char *pattern, char ftype)
 uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
 {
   uint8_t res = E_OK;
-  char ftype = 'P';
-  char mode  = 'R';
+  uint8_t ftype = FT_PRG;
+  char mode  = 0;
   char *name = m_dirBuffer;
-
-  // skip "0:" prefix
-  if( isdigit(constName[0]) && constName[1]==':' ) constName+=2;
+  bool overwrite = false;
 
   // file name ends at the first 0xA0 ("shifted space")
   strcpy(name, constName);
   char *c = strchr(name, '\xa0');
   if( c!=NULL ) *c = 0;
 
+  // ignore anything before and including the first ':'
+  // and check for 'overwrite' ("@") character
+  if( strchr(name, ':')!=NULL )
+    {
+      while( *name != ':' )
+        {
+          if( *name=='@' ) overwrite = true;
+          name++;
+        }
+      name++;
+    }
+
   // convert "/" and "\" to "-" (we don't support subdirectories)
   for(c=name; *c!=0; c++)
-    if( *c=='/' || *c=='\\' ) *
-      c = '-';
+    if( *c=='/' || *c=='\\' )
+      *c = '-';
 
   char *comma = strchr(name, ',');
   if( comma!=NULL )
     {
       char *c = comma;
       do { *c-- = 0; } while( c!=name && ((*c) & 0x7f)==' ');
-      ftype  = toupper(*(comma+1));
-      if( ftype=='R' || ftype=='W' )
-        {
-          mode  = ftype;
-          ftype = 'P';
-        }
+      char cc = toupper(*(comma+1));
+      if( cc=='R' || cc=='W' )
+        mode = cc;
       else
         {
-          comma  = strchr(comma+1, ',');
+          if( cc=='S' )
+            ftype = FT_SEQ;
+          else if( cc!='P' )
+            ftype = FT_NONE;
+
+          comma = strchr(comma+1, ',');
           if( comma!=NULL )
             mode = toupper(*(comma+1));
         }
     }
-  else if( channel==0 )
-    mode = 'R';
-  else if( channel==1 )
-    mode = 'W';
   
-  if( (ftype!='P' && ftype!='S') || (mode!='R' && mode!='W') )
+  if( mode==0 )
+    {
+      if( channel==0 )
+        mode = 'R';
+      else if( channel==1 )
+        mode = 'W';
+    }
+
+  // if the file type is neither PRG nor SEQ or mode is neither R nor W
+  // then the file name is invalid
+  if( ftype==FT_NONE || (mode!='R' && mode!='W') )
     res = E_INVNAME;
 
   if( res == E_OK )
     {
       if( mode=='R' )
         {
-          if( isHiddenFile(name) )
-            return E_NOTFOUND;
-          
-          if( name[0]==':' ) name++;
-          m_file = LittleFS.open(name, "r");
-          if( !m_file )
+          const char *fn = findFile(name, ftype);
+          if( fn==NULL )
             {
-              const char *fn = findFile(name, ftype);
-              if( fn ) m_file = LittleFS.open(fn, "r");
+              // given file type not found, if we can't find any file (any extension)
+              // then the file doesn't exist, otherwise it's a file type mismatch
+              fn = findFile(name, FT_ANY);
+              if( fn==NULL || isHiddenFile(fn) )
+                res = E_NOTFOUND;
+              else
+                res = E_MISMATCH;
             }
-          
-          res = m_file && (m_file.size()>0) ? E_OK : E_NOTFOUND;
-          if( res != E_OK ) m_file.close();
+          else
+            {
+              // found the file, try to open, reject if size is 0
+              m_file = LittleFS.open(fn, "r");
+              res = m_file && (m_file.size()>0) ? E_OK : E_NOTFOUND;
+              if( res != E_OK ) m_file.close();
+            }
         }
       else
         {
-          if( isHiddenFile(name) )
-            return E_WRITEPROT;
-
-          bool overwrite = false;
-          if( name[0]=='@' && name[1]==':' )
-            { name+=2; overwrite = true; }
-          else if( name[0]=='@' && name[1]!=0 && name[2]==':' )
-            { name+=3; overwrite = true; }
-          else if( name[0]!=0 && name[1]==':' )
-            { name+=2; }
-
-          // if we are overwriting a file whose name exists without PRG/SEQ extension 
-          // then delete the existing version (so we don't get two files with the same name)
-          if( overwrite && findFile(name, '\0')!=NULL )
-            LittleFS.remove(name);
-          
-          if( !overwrite && LittleFS.exists(name) )
+          if( strchr(name, '*')!=NULL || strchr(name, '?')!=NULL )
+            res = E_INVNAME;
+          else if( !overwrite && findFile(name, FT_ANY)!=NULL )
             res = E_EXISTS;
           else 
             {
+              // creating/overwriting file => always add PRG/SEQ extension
+              // this also means we can never create/overwrite a hidden file (ending in '$')
+              strcat(name, ftype==FT_PRG ? ".PRG" : ".SEQ");
               m_file = LittleFS.open(name, "w");
-              res = m_file ? E_OK : res = E_WRITE;
+              res = m_file ? E_OK : E_WRITE;
             }
         }
     }
@@ -771,7 +816,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       while( m_dir.next() )
         {
           String name = m_dir.fileName();
-          if( name.length()>0 && isMatch(name.c_str(), pattern, 1+2) && !isHiddenFile(name.c_str()) )
+          if( name.length()>0 && isMatch(name.c_str(), pattern, FT_ANY) && !isHiddenFile(name.c_str()) )
             {
               if( m_dir.isDirectory() ? LittleFS.rmdir(name.c_str()) : LittleFS.remove(name.c_str()) )
                 {
@@ -861,7 +906,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
 
           if( !LittleFS.exists(m_dirBuffer) )
             {
-              const char *name = findFile(m_dirBuffer, 0);
+              const char *name = findFile(m_dirBuffer, FT_ANY);
               if( name!=NULL ) strcpy(m_dirBuffer, name);
             }
 

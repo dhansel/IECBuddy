@@ -9,6 +9,10 @@
 
 #define IEC_BUFSIZE 64
 
+#ifndef isalphanum
+#define isalphanum(c) (isalpha(c) || isdigit(c))
+#endif
+
 class IECDisplay;
 typedef std::unordered_map<std::string, std::string> ConfigType;
 
@@ -52,15 +56,16 @@ class IECSidekick64 : public IECFileDevice
   uint8_t openFile(uint8_t channel, const char *name);
   uint8_t openDir(const char *name);
   bool readDir(uint8_t *data);
-  bool isMatch(const char *name, const char *pattern, uint8_t extmatch);
   static const char *getStatusMessage(uint8_t statusCode);
 
   void readConfig();
   void writeConfig();
 
-  const char *findFile(const char *name, char ftype);
-  std::string stripFileName(const char *cname);
+  bool isMatch(const char *name, const char *pattern, uint8_t ftpes);
+  const char *findFile(const char *name, uint8_t ftypes);
   bool isHiddenFile(const char *fname);
+
+  std::string stripFileName(const char *cname);
 
   void setLEDState(int color);
 
