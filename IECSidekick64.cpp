@@ -415,6 +415,7 @@ bool IECSidekick64::readDir(uint8_t *data)
                       ftype[0] = toupper(name[dot+1]);
                       ftype[1] = toupper(name[dot+2]);
                       ftype[2] = toupper(name[dot+3]);
+                      if( dot<n ) n = dot;
                     }
                   
                   m_dirBufferLen += n;
