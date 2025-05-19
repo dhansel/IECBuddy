@@ -401,7 +401,7 @@ bool IECSidekick64::readDir(uint8_t *data)
 
               m_dirBuffer[m_dirBufferLen++] = '"';
               String name = m_dir.fileName();
-              size_t n = min(name.length(), 20);
+              size_t n = min(name.length(), 16);
               if( n>0 )
                 {
                   strncpy(m_dirBuffer+m_dirBufferLen, name.c_str(), n);
@@ -409,18 +409,13 @@ bool IECSidekick64::readDir(uint8_t *data)
 
                   char ftype[4];
                   strcpy(ftype, "???");
-                  if( n>4 && m_dirBuffer[m_dirBufferLen+n-4]=='.' &&
-                      isalphanum(m_dirBuffer[m_dirBufferLen+n-3]) &&
-                      isalphanum(m_dirBuffer[m_dirBufferLen+n-2]) &&
-                      isalphanum(m_dirBuffer[m_dirBufferLen+n-1]) )
+                  int dot = name.lastIndexOf('.');
+                  if( dot>=0 && dot==name.length()-4 && isalphanum(name[dot+1]) && isalphanum(name[dot+2]) && isalphanum(name[dot+3]) )
                     {
-                      ftype[0] = toupper(m_dirBuffer[m_dirBufferLen+n-3]);
-                      ftype[1] = toupper(m_dirBuffer[m_dirBufferLen+n-2]);
-                      ftype[2] = toupper(m_dirBuffer[m_dirBufferLen+n-1]);
-                      n -= 4;
+                      ftype[0] = toupper(name[dot+1]);
+                      ftype[1] = toupper(name[dot+2]);
+                      ftype[2] = toupper(name[dot+3]);
                     }
-                  else if( n>16 )
-                    n = 16;
                   
                   m_dirBufferLen += n;
                   m_dirBuffer[m_dirBufferLen++] = '"';
@@ -514,16 +509,16 @@ bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t ftype
 const char *IECSidekick64::findFile(const char *pattern, uint8_t ftypes)
 {
   bool found = false;
-  static char name[22];
+  static String name;
 
   m_dir = LittleFS.openDir("/");
   while( !found && m_dir.next() )
     {
-      strcpy(name, m_dir.fileName().substring(0,21).c_str());
-      found = !m_dir.isDirectory() && isMatch(name, pattern, ftypes) && !isHiddenFile(name);
+      name = m_dir.fileName();
+      found = !m_dir.isDirectory() && isMatch(name.c_str(), pattern, ftypes) && !isHiddenFile(name.c_str());
     }
 
-  return found ? name : NULL;
+  return found ? name.c_str() : NULL;
 }
 
 
