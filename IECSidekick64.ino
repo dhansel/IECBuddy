@@ -504,9 +504,15 @@ void getMountedDiskImage()
 
 void setConfigValue()
 {
+#if DEBUG>0
+  Serial1.printf("setConfigValue()\r\n");
+#endif
   string key, value;
   if( recv_string(key) && recv_string(value) )
     {
+#if DEBUG>0
+      Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
+#endif
       iecDrive.setConfigValue(key, value);
       send_status(ST_OK);
     }
@@ -515,9 +521,18 @@ void setConfigValue()
 
 void getConfigValue()
 {
+#if DEBUG>0
+  Serial1.printf("getConfigValue()\r\n");
+#endif
   string key;
   if( recv_string(key) )
-    send_string(iecDrive.getConfigValue(key));
+    {
+      string value = iecDrive.getConfigValue(key);
+#if DEBUG>0
+      Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
+#endif
+      send_string(value);
+    }
 }
 
 
