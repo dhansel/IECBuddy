@@ -182,20 +182,65 @@ void IECSidekick64::task()
 
       m_display->showMessage("Searching...");
 
-      bool found = false;
-      Dir dir = LittleFS.openDir("/");
-      if( !current.empty() )
+      string favlist = getConfigValue("favlist");
+      if( favlist.length()%32==0 && favlist.find('.')!=string::npos )
         {
-          while( !found && dir.next() )
-            found = strcmp(dir.fileName().c_str(), current.c_str())==0;
+          // we have a properly sized favlist containing at least one item
+          int len = favlist.length()/32;
 
-          // if we can't find the current image then just find the first one
-          if( !found ) dir = LittleFS.openDir("/");
+          // find the currently mounted image in the favlist
+          int i = 0;
+          for(i=0; i<len; i++)
+            {
+              string next = favlist.substr(i*32,32);
+              if( next.find('|')!=string::npos ) next = next.substr(0, next.find('|'));
+              if( strcasecmp(next.c_str(), current.c_str())==0 ) break;
+            }
+
+          // if we couldn't find the current image then start at the beginning, otherwise go to the next
+          if( i==len )
+            i = 0;
+          else
+            i++;
+
+          // find the next image in the favlist
+          for(int j=i; j<len; j++)
+            {
+              string next = favlist.substr(j*32,32);
+              if( next.find('|')!=string::npos ) next = next.substr(0, next.find('|'));
+              if( !next.empty() && m_drive->openDiskImage(next.c_str()) )
+                break;
+            }
+
+          // if we haven't found one yet then re-start at the beginning
+          if( !m_drive->isOk() )
+            {
+              for(int j=0; j<i; j++)
+                {
+                  string next = favlist.substr(j*32,32);
+                  if( next.find('|')!=string::npos ) next = next.substr(0, next.find('|'));
+                  if( m_drive->openDiskImage(next.c_str()) )
+                    break;
+                }
+            }
         }
+      else
+        {
+          bool found = false;
+          Dir dir = LittleFS.openDir("/");
+          if( !current.empty() )
+            {
+              while( !found && dir.next() )
+                found = strcmp(dir.fileName().c_str(), current.c_str())==0;
 
-      // keep trying to mount files as disk images and stop if one found
-      while( !m_drive->isOk() && dir.next() )
-        m_drive->openDiskImage(dir.fileName().c_str());
+              // if we can't find the current image then just find the first one
+              if( !found ) dir = LittleFS.openDir("/");
+            }
+
+          // keep trying to mount files as disk images and stop if one found
+          while( !m_drive->isOk() && dir.next() )
+            m_drive->openDiskImage(dir.fileName().c_str());
+        }
 
       const char *iname = m_drive->getDiskImageFilename();
       m_display->setCurrentImageName(iname ? iname : "");
