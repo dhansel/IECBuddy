@@ -582,10 +582,10 @@ void setup()
 
   LittleFS.setTimeCallback(mytime);
 
-#ifdef SUPPORT_DOLPHIN
-  iecBus.setDolphinDosPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
-                           PIN_PAR_PB0, PIN_PAR_PB1, PIN_PAR_PB2, PIN_PAR_PB3, 
-                           PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
+#ifdef SUPPORT_PARALLEL
+  iecBus.setParallelPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
+                         PIN_PAR_PB0, PIN_PAR_PB1, PIN_PAR_PB2, PIN_PAR_PB3,
+                         PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
 #endif
   iecBus.attachDevice(&iecDrive);
   iecBus.begin();

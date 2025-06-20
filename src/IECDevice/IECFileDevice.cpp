@@ -26,14 +26,15 @@
 #endif
 
 #define DEBUG 0
+#define Serial Serial1
 
 #if DEBUG>0
 
 void print_hex(uint8_t data)
 {
   static const PROGMEM char hex[16] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-  Serial1.write(pgm_read_byte_near(hex+(data/16)));
-  Serial1.write(pgm_read_byte_near(hex+(data&15)));
+  Serial.write(pgm_read_byte_near(hex+(data/16)));
+  Serial.write(pgm_read_byte_near(hex+(data&15)));
 }
 
 
@@ -45,19 +46,19 @@ void dbg_print_data()
     {
       for(uint8_t i=0; i<dbgnum; i++)
         {
-          if( i==8 ) Serial1.write(' ');
+          if( i==8 ) Serial.write(' ');
           print_hex(dbgbuf[i]);
-          Serial1.write(' ');
+          Serial.write(' ');
         }
 
-      for(int i=0; i<(16-dbgnum)*3; i++) Serial1.write(' ');
-      if( dbgnum<8 ) Serial1.write(' ');
+      for(int i=0; i<(16-dbgnum)*3; i++) Serial.write(' ');
+      if( dbgnum<8 ) Serial.write(' ');
       for(int i=0; i<dbgnum; i++)
         {
-          if( (i&7)==0 ) Serial1.write(' ');
-          Serial1.write(isprint(dbgbuf[i]) ? dbgbuf[i] : '.');
+          if( (i&7)==0 ) Serial.write(' ');
+          Serial.write(isprint(dbgbuf[i]) ? dbgbuf[i] : '.');
         }
-      Serial1.write('\r'); Serial1.write('\n');
+      Serial.write('\r'); Serial.write('\n');
       dbgnum = 0;
     }
 }
@@ -78,6 +79,8 @@ void dbg_data(uint8_t data)
 #define IFD_WRITE 4
 
 
+struct MWSignature { uint16_t address; uint8_t len; uint8_t checksum; };
+
 IECFileDevice::IECFileDevice(uint8_t devnr) : 
   IECDevice(devnr)
 {
@@ -89,29 +92,36 @@ IECFileDevice::IECFileDevice(uint8_t devnr) :
 void IECFileDevice::begin()
 {
 #if DEBUG>0
-  /*if( !Serial )*/ Serial1.begin(115200);
+  /*if( !Serial )*/ Serial.begin(115200);
   for(int i=0; !Serial && i<5; i++) delay(1000);
-  Serial1.print(F("START:IECFileDevice, devnr=")); Serial1.println(m_devnr); Serial1.flush();
+  Serial.print(F("START:IECFileDevice, devnr=")); Serial.println(m_devnr); Serial.flush();
 #endif
   
   bool ok;
 #ifdef SUPPORT_JIFFY
   ok = IECDevice::enableJiffyDosSupport(true);
 #if DEBUG>0
-  Serial1.print(F("JiffyDos support ")); Serial1.println(ok ? F("enabled") : F("disabled"));
+  Serial.print(F("JiffyDos support ")); Serial.println(ok ? F("enabled") : F("disabled"));
 #endif
 #endif
 #ifdef SUPPORT_DOLPHIN
   ok = IECDevice::enableDolphinDosSupport(true);
 #if DEBUG>0
-  Serial1.print(F("DolphinDos support ")); Serial1.println(ok ? F("enabled") : F("disabled"));
+  Serial.print(F("DolphinDos support ")); Serial.println(ok ? F("enabled") : F("disabled"));
+#endif
+#endif
+#ifdef SUPPORT_SPEEDDOS
+  ok = IECDevice::enableSpeedDosSupport(true);
+  m_uploadCtr = 0;
+#if DEBUG>0
+  Serial.print(F("SpeedDos support ")); Serial.println(ok ? F("enabled") : F("disabled"));
 #endif
 #endif
 #ifdef SUPPORT_EPYX
   ok = IECDevice::enableEpyxFastLoadSupport(true);
-  m_epyxCtr = 0;
+  m_uploadCtr = 0;
 #if DEBUG>0
-  Serial1.print(F("Epyx FastLoad support ")); Serial1.println(ok ? F("enabled") : F("disabled"));
+  Serial.print(F("Epyx FastLoad support ")); Serial.println(ok ? F("enabled") : F("disabled"));
 #endif
 #endif
 
@@ -163,7 +173,7 @@ uint8_t IECFileDevice::getStatusData(char *buffer, uint8_t bufferSize)
 int8_t IECFileDevice::canRead() 
 { 
 #if DEBUG>2
-  Serial1.write('c');Serial1.write('R');
+  Serial.write('c');Serial.write('R');
 #endif
 
   // see comment in IECFileDevice constructor
@@ -185,12 +195,12 @@ int8_t IECFileDevice::canRead()
           m_statusBufferPtr = 0;
           m_statusBufferLen = getStatusData(m_statusBuffer, IECFILEDEVICE_STATUS_BUFFER_SIZE);
 #if DEBUG>0
-          Serial1.print(F("STATUS")); 
+          Serial.print(F("STATUS")); 
 #if MAX_DEVICES>1
-          Serial1.write('#'); Serial1.print(m_devnr);
+          Serial.write('#'); Serial.print(m_devnr);
 #endif
-          Serial1.write(':'); Serial1.write(' ');
-          Serial1.println(m_statusBuffer);
+          Serial.write(':'); Serial.write(' ');
+          Serial.println(m_statusBuffer);
           for(uint8_t i=0; i<m_statusBufferLen; i++) dbg_data(m_statusBuffer[i]);
           dbg_print_data();
 #endif
@@ -223,7 +233,7 @@ uint8_t IECFileDevice::peek()
     data = m_readBuffer[m_channel][0];
 
 #if DEBUG>1
-  Serial1.write('P'); print_hex(data);
+  Serial.write('P'); print_hex(data);
 #endif
 
   return data;
@@ -249,7 +259,7 @@ uint8_t IECFileDevice::read()
     }
 
 #if DEBUG>1
-  Serial1.write('R'); print_hex(data);
+  Serial.write('R'); print_hex(data);
 #endif
 
   return data;
@@ -279,7 +289,7 @@ uint8_t IECFileDevice::read(uint8_t *buffer, uint8_t bufferSize)
 #endif
       res += n;
     }
-  
+
   return res;
 }
 
@@ -287,7 +297,7 @@ uint8_t IECFileDevice::read(uint8_t *buffer, uint8_t bufferSize)
 int8_t IECFileDevice::canWrite() 
 {
 #if DEBUG>2
-  Serial1.write('c');Serial1.write('W');
+  Serial.write('c');Serial.write('W');
 #endif
 
   // see comment in IECFileDevice constructor
@@ -324,7 +334,7 @@ int8_t IECFileDevice::canWrite()
 void IECFileDevice::write(uint8_t data, bool eoi) 
 {
   // this function must return withitn 1 millisecond
-  // => do not add Serial1.print or function call that may take longer!
+  // => do not add Serial.print or function call that may take longer!
   // (at 115200 baud we can send 10 characters in less than 1 ms)
 
   m_eoi |= eoi;
@@ -332,7 +342,7 @@ void IECFileDevice::write(uint8_t data, bool eoi)
     m_writeBuffer[m_writeBufferLen++] = data;
  
 #if DEBUG>1
-  Serial1.write('W'); print_hex(data);
+  Serial.write('W'); print_hex(data);
 #endif
 }
 
@@ -362,7 +372,7 @@ uint8_t IECFileDevice::write(uint8_t *buffer, uint8_t bufferSize, bool eoi)
 void IECFileDevice::talk(uint8_t secondary)   
 {
 #if DEBUG>1
-  Serial1.write('T'); print_hex(secondary);
+  Serial.write('T'); print_hex(secondary);
 #endif
 
   m_channel = secondary & 0x0F;
@@ -373,7 +383,7 @@ void IECFileDevice::talk(uint8_t secondary)
 void IECFileDevice::untalk() 
 {
 #if DEBUG>1
-  Serial1.write('t');
+  Serial.write('t');
 #endif
 
   // no current channel
@@ -384,7 +394,7 @@ void IECFileDevice::untalk()
 void IECFileDevice::listen(uint8_t secondary) 
 {
 #if DEBUG>1
-  Serial1.write('L'); print_hex(secondary);
+  Serial.write('L'); print_hex(secondary);
 #endif
   m_channel = secondary & 0x0F;
   m_eoi = false;
@@ -406,7 +416,7 @@ void IECFileDevice::listen(uint8_t secondary)
 void IECFileDevice::unlisten() 
 {
 #if DEBUG>1
-  Serial1.write('l'); Serial1.write('0'+m_channel);
+  Serial.write('l'); Serial.write('0'+m_channel);
 #endif
 
   if( m_channel==15 )
@@ -440,10 +450,10 @@ bool IECFileDevice::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffe
 {
 #if DEBUG>0
   dbg_print_data();
-  Serial1.print("Read track "); Serial1.print(track); Serial1.print(" sector "); Serial1.println(sector);
+  Serial.print("Read track "); Serial.print(track); Serial.print(" sector "); Serial.println(sector);
   for(int i=0; i<256; i++) dbg_data(buffer[i]);
   dbg_print_data();
-  Serial1.flush();
+  Serial.flush();
   return true;
 #else
   return false;
@@ -455,7 +465,7 @@ bool IECFileDevice::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buff
 {
 #if DEBUG>0
   dbg_print_data();
-  Serial1.print("Write track "); Serial1.print(track); Serial1.print(" sector "); Serial1.println(sector); Serial1.flush();
+  Serial.print("Write track "); Serial.print(track); Serial.print(" sector "); Serial.println(sector); Serial.flush();
   for(int i=0; i<256; i++) dbg_data(buffer[i]);
   dbg_print_data();
   return true;
@@ -515,11 +525,11 @@ void IECFileDevice::fileTask()
 #if DEBUG>0
         for(uint8_t i=0; m_writeBuffer[i]; i++) dbg_data(m_writeBuffer[i]);
         dbg_print_data();
-        Serial1.print(F("OPEN #")); 
+        Serial.print(F("OPEN #")); 
 #if MAX_DEVICES>1
-        Serial1.print(m_devnr); Serial1.write('#');
+        Serial.print(m_devnr); Serial.write('#');
 #endif
-        Serial1.print(m_channel); Serial1.print(F(": ")); Serial1.println((const char *) m_writeBuffer);
+        Serial.print(m_channel); Serial.print(F(": ")); Serial.println((const char *) m_writeBuffer);
 #endif
         bool ok = open(m_channel, (const char *) m_writeBuffer);
         
@@ -533,11 +543,11 @@ void IECFileDevice::fileTask()
       {
 #if DEBUG>0
         dbg_print_data();
-        Serial1.print(F("CLOSE #")); 
+        Serial.print(F("CLOSE #")); 
 #if MAX_DEVICES>1
-        Serial1.print(m_devnr); Serial1.write('#');
+        Serial.print(m_devnr); Serial.write('#');
 #endif
-        Serial1.println(m_channel);
+        Serial.println(m_channel);
 #endif
         // note: any data that cannot be sent on at this point is lost!
         emptyWriteBuffer();
@@ -573,34 +583,49 @@ void IECFileDevice::fileTask()
           {
             for(uint8_t i=0; i<m_writeBufferLen; i++) dbg_data(m_writeBuffer[i]);
             dbg_print_data();
-            Serial1.print(F("EXECUTE: ")); Serial1.println(cmd);
+            Serial.print(F("EXECUTE: ")); Serial.println(cmd);
           }
 #endif
 #ifdef SUPPORT_EPYX
-        if     ( m_epyxCtr== 0 && checkMWcmd(0x0180, 0x20, 0x2E) )
-          { m_epyxCtr = 11; handled = true; }
-        else if( m_epyxCtr==11 && checkMWcmd(0x01A0, 0x20, 0xA5) )
-          { m_epyxCtr = 12; handled = true; }
-        else if( m_epyxCtr==12 && strncmp_P(cmd, PSTR("M-E\xa2\x01"), 5)==0 )
-          { m_epyxCtr = 99; handled = true; } // EPYX V1
-        else if( m_epyxCtr== 0 && checkMWcmd(0x0180, 0x19, 0x53) )
-          { m_epyxCtr = 21; handled = true; }
-        else if( m_epyxCtr==21 && checkMWcmd(0x0199, 0x19, 0xA6) )
-          { m_epyxCtr = 22; handled = true; }
-        else if( m_epyxCtr==22 && checkMWcmd(0x01B2, 0x19, 0x8F) )
-          { m_epyxCtr = 23; handled = true; }
-        else if( m_epyxCtr==23 && strncmp_P(cmd, PSTR("M-E\xa9\x01"), 5)==0 )
-          { m_epyxCtr = 99; handled = true; } // EPYX V2 or V3
-        else
-          m_epyxCtr = 0;
+        static const struct MWSignature epyxV1sig[2]   = { {0x0180, 0x20, 0x2E}, {0x01A0, 0x20, 0xA5} };
+        static const struct MWSignature epyxV2V3sig[3] = { {0x0180, 0x19, 0x53}, {0x0199, 0x19, 0xA6}, {0x01B2, 0x19, 0x8F} };
 
-        if( m_epyxCtr==99 )
+        if( checkMWcmds(epyxV1sig, 2, 10) || checkMWcmds(epyxV2V3sig, 3, 20) )
+          handled = true;
+        else if( m_uploadCtr==12 && strncmp_P(cmd, PSTR("M-E\xa2\x01"), 5)==0 )
+          m_uploadCtr = 99;
+        else if( m_uploadCtr==23 && strncmp_P(cmd, PSTR("M-E\xa9\x01"), 5)==0 )
+          m_uploadCtr = 99;
+
+        if( m_uploadCtr==99 )
           {
 #if DEBUG>0
-            Serial1.println(F("EPYX FASTLOAD DETECTED"));
+            Serial.println(F("EPYX FASTLOAD DETECTED"));
 #endif
             epyxLoadRequest();
-            m_epyxCtr = 0;
+            m_uploadCtr = 0;
+          }
+#endif
+#ifdef SUPPORT_SPEEDDOS
+        static const struct MWSignature speedDosLoadSig[18] =
+          { {0x300,0x1e,0xc9}, {0x31e,0x1e,0xe9}, {0x33c,0x1e,0xb9}, {0x35a,0x1e,0x4d},
+            {0x378,0x1e,0x5c}, {0x396,0x1e,0x96}, {0x3b4,0x1e,0x39}, {0x3d2,0x1e,0xde},
+            {0x3f0,0x1e,0x0d}, {0x40e,0x1e,0xaf}, {0x42c,0x1e,0x1e}, {0x44a,0x1e,0xf6},
+            {0x468,0x1e,0xd2}, {0x486,0x1e,0x1b}, {0x4a4,0x1e,0x5f}, {0x4c2,0x1e,0x96},
+            {0x4e0,0x1e,0x53}, {0x4fe,0x1e,0x16} };
+
+        if( checkMWcmds(speedDosLoadSig, 18, 100) )
+          handled = true;
+        else if( m_uploadCtr==118 && strncmp_P(cmd, PSTR("M-E\x03\x03"), 5)==0 )
+          {
+#if DEBUG>0
+            Serial.println(F("SPEEDDOS FASTLOAD DETECTED"));
+#endif
+            speedDosLoadRequest();
+            m_uploadCtr = 0;
+            handled = true;
+            m_eoi = false;
+            m_channel = 0;
           }
 #endif
 #ifdef SUPPORT_DOLPHIN
@@ -613,13 +638,36 @@ void IECFileDevice::fileTask()
         else if( strcmp_P(cmd, PSTR("XF-"))==0 )
           { enableDolphinBurstMode(false); setStatus(NULL, 0); handled = true; }
 #endif
-        if( !handled ) execute(cmd, m_writeBufferLen);
+        if( !handled )
+          {
+            execute(cmd, m_writeBufferLen);
+            m_uploadCtr = 0;
+          }
+
         m_writeBufferLen = 0;
         break;
       }
     }
 
   m_cmd = IFD_NONE;
+}
+
+
+bool IECFileDevice::checkMWcmds(const struct MWSignature *sig, uint8_t sigLen, uint8_t offset)
+{
+  if( m_uploadCtr==0 && checkMWcmd(sig[0].address, sig[0].len, sig[0].checksum) )
+    {
+      m_uploadCtr = offset+1;
+      return true;
+    }
+  else if( m_uploadCtr >= offset && m_uploadCtr < offset+sigLen &&
+           checkMWcmd(sig[m_uploadCtr-offset].address, sig[m_uploadCtr-offset].len, sig[m_uploadCtr-offset].checksum) )
+    {
+      m_uploadCtr++;
+      return true;
+    }
+  else
+    return false;
 }
 
 
@@ -636,6 +684,7 @@ bool IECFileDevice::checkMWcmd(uint16_t addr, uint8_t len, uint8_t checksum) con
   // check checksum
   uint8_t c = 0;
   for(uint8_t i=0; i<len; i++) c += m_writeBuffer[6+i];
+
   return c==checksum;
 }
 
@@ -643,11 +692,11 @@ bool IECFileDevice::checkMWcmd(uint16_t addr, uint8_t len, uint8_t checksum) con
 void IECFileDevice::setStatus(const char *data, uint8_t dataLen)
 {
 #if DEBUG>0
-  Serial1.print(F("SETSTATUS ")); 
+  Serial.print(F("SETSTATUS ")); 
 #if MAX_DEVICES>1
-  Serial1.write('#'); Serial1.print(m_devnr); Serial1.write(' ');
+  Serial.write('#'); Serial.print(m_devnr); Serial.write(' ');
 #endif
-  Serial1.println(dataLen);
+  Serial.println(dataLen);
 #endif
 
   m_statusBufferPtr = 0;
@@ -666,9 +715,9 @@ void IECFileDevice::reset()
 {
 #if DEBUG>0
 #if MAX_DEVICES>1
-  Serial1.write('#'); Serial1.print(m_devnr); Serial1.write(' ');
+  Serial.write('#'); Serial.print(m_devnr); Serial.write(' ');
 #endif
-  Serial1.println(F("RESET"));
+  Serial.println(F("RESET"));
 #endif
 
   m_statusBufferPtr = 0;
@@ -679,8 +728,8 @@ void IECFileDevice::reset()
   m_cmd = IFD_NONE;
   m_opening = false;
 
-#ifdef SUPPORT_EPYX
-  m_epyxCtr = 0;
+#if defined(SUPPORT_EPYX) || defined(SUPPORT_SPEEDDOS)
+  m_uploadCtr = 0;
 #endif
 
   IECDevice::reset();

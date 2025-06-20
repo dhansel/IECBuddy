@@ -408,7 +408,7 @@ uint8_t IECSidekick64::openDir(const char *name)
 
   if( isdigit(name[1]) && name[2]==':' )
     m_dirPattern = name+3;
-  else if( name[1] == ':' )
+  else if( name[1] == ':' || isdigit(name[1]) )
     m_dirPattern = name+2;
   else
     m_dirPattern = name+1;

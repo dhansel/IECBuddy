@@ -38,11 +38,12 @@
 #define SUPPORT_EPYX
 #if defined(PIN_PAR_FLAG2) && defined(PIN_PAR_PC2)
 #define SUPPORT_DOLPHIN
+#define SUPPORT_SPEEDDOS
 #endif
 
 // un-comment this to use a XRA1405 port expander for the 8-bit parallel cable
 // instead of connecting the parallel pins directly to the microcontroller
-//#define SUPPORT_DOLPHIN_XRA1405
+//#define SUPPORT_PARALLEL_XRA1405
 
 // support Epyx FastLoad sector operations (disk editor, disk copy, file copy)
 // if this is enabled then the buffer in the setBuffer() call must have a size of
@@ -74,5 +75,11 @@
 // every instance of IECFileDevice will allocate this buffer so it should be
 // kept small on platforms with little RAM (e.g. Arduino UNO)
 #define IECFILEDEVICE_STATUS_BUFFER_SIZE 128
+
+// convenience macro, SUPPORT_PARALLEL is defined if any of the supported
+// fast-load protocols use a parallel cable
+#if defined(SUPPORT_DOLPHIN) || defined(SUPPORT_SPEEDDOS)
+#define SUPPORT_PARALLEL
+#endif
 
 #endif
