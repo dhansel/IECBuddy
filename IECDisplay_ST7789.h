@@ -21,6 +21,7 @@ class IECDisplay_ST7789 : public IECDisplay
   virtual void showMessage(std::string msg);
   virtual void showTransmitMessage(std::string msg, std::string fileName);
 
+  virtual void showPrintStatus(bool printing);
   virtual void startProgress(int nbytestotal);
   virtual void updateProgress(int nbytes);
   virtual void update(const char *statusMessage);

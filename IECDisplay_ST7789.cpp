@@ -184,4 +184,36 @@ void IECDisplay_ST7789::update(const char *statusMessage)
     }
 }
 
+
+void IECDisplay_ST7789::showPrintStatus(bool printing)
+{
+  static int spin = 0;
+  static unsigned long spinto = 0;
+  const char spinchr[] = "|/-\\";
+
+  int w = 25;
+  int x = m_display->width()-w;
+
+  if( printing )
+    {
+      if( millis()>spinto )
+        {
+          m_display->fillRect(x, 0, x+w, m_display->getTextLineHeight(), RGB565_BLACK);
+          m_display->setTextSize(3);
+          m_display->setTextColor(RGB565_YELLOW);
+          m_display->setCursor(x, 0);
+          m_display->write(spinchr[spin]);
+          spin   = (spin+1) & 3;
+          spinto = millis()+250;
+        }
+    }
+  else
+    {
+      m_display->fillRect(x, 0, x+w, m_display->getTextLineHeight(), RGB565_BLACK);
+      spinto = 0;
+      spin   = 0;
+    }
+}
+
+
 #endif

@@ -1,5 +1,5 @@
-#ifndef IECSIDEKICK64_H
-#define IECSIDEKICK64_H
+#ifndef IECDRIVE_H
+#define IECDRIVE_H
 
 #include <string>
 #include <unordered_map>
@@ -14,12 +14,12 @@
 #endif
 
 class IECDisplay;
-typedef std::unordered_map<std::string, std::string> ConfigType;
+class IECConfig;
 
-class IECSidekick64 : public IECFileDevice
+class IECDrive : public IECFileDevice
 {
  public: 
-  IECSidekick64(uint8_t devnum, uint8_t pinLED);
+  IECDrive(uint8_t devnum, uint8_t pinLED);
 
   virtual void getStatus(char *buffer, uint8_t bufferSize);
   virtual void execute(const char *command, uint8_t len);
@@ -28,11 +28,8 @@ class IECSidekick64 : public IECFileDevice
   bool mountDiskImage(const char *name);
   const char *getMountedImageName();
 
-  const std::string &getConfigValue(const std::string &key);
-  void setConfigValue(const std::string &key, const std::string &value, bool write = true);
-  void clearConfig();
-
-  IECDisplay *getDisplay() { return m_display; }
+  void setDisplay(IECDisplay *d) { m_display = d; }
+  void setConfig(IECConfig *c)   { m_config = c; }
   void updateDisplay();
 
  protected:
@@ -50,16 +47,11 @@ class IECSidekick64 : public IECFileDevice
   virtual bool epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer);
 #endif
 
-  ConfigType m_config;
-
  private:
   uint8_t openFile(uint8_t channel, const char *name);
   uint8_t openDir(const char *name);
   bool readDir(uint8_t *data);
   static const char *getStatusMessage(uint8_t statusCode);
-
-  void readConfig();
-  void writeConfig();
 
   bool isMatch(const char *name, const char *pattern, uint8_t ftpes);
   const char *findFile(const char *name, uint8_t ftypes);
@@ -71,6 +63,7 @@ class IECSidekick64 : public IECFileDevice
 
   VDrive *m_drive;
   IECDisplay *m_display;
+  IECConfig  *m_config;
 
   File m_file;
   Dir  m_dir;

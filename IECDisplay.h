@@ -1,6 +1,7 @@
 #ifndef IECDISPLAY
 #define IECDISPLAY
 
+
 #include <string>
 
 class IECDisplay
@@ -16,10 +17,13 @@ class IECDisplay
 
   virtual void showMessage(std::string msg);
   virtual void showTransmitMessage(std::string msg, std::string fileName);
+  virtual void showPrintStatus(bool printing);
 
   virtual void startProgress(int nbytestotal);
   virtual void updateProgress(int nbytes);
   virtual void update(const char *statusMessage);
+
+  static IECDisplay *Create(std::string displayType);
 
  protected:
   bool isErrorStatus(const char *statusMessage);
@@ -31,5 +35,8 @@ class IECDisplay
   int         m_curFileBytesRead;
   int         m_progressWidth;
 };
+
+#include "IECDisplay_SSD1306.h"
+#include "IECDisplay_ST7789.h"
 
 #endif

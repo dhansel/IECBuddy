@@ -1,5 +1,7 @@
-#include "IECSidekick64.h"
+#include "IECDrive.h"
+#include "IECPrinter.h"
 #include "IECDisplay.h"
+#include "IECConfig.h"
 #include "Pins.h"
 #include "src/IECDevice/IECBusHandler.h"
 #include "protocol.h"
@@ -44,7 +46,10 @@ extern "C" int printf(const char* format, ... )
 // IEC bus device number
 #define DEVICE_NUMBER  8
 
-IECSidekick64 iecDrive(DEVICE_NUMBER, PIN_LED);
+IECConfig   iecConfig;
+IECDrive    iecDrive(DEVICE_NUMBER, PIN_LED);
+IECPrinter  iecPrinter(4, PRINTDATAFILE);
+IECDisplay *iecDisplay = NULL;
 
 // if RESET pin is not defined, set it to 0xFF (not assigned)
 #ifndef PIN_IEC_RESET
@@ -273,9 +278,8 @@ void sendFile()
           // send status
           if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-          IECDisplay *display = iecDrive.getDisplay();
-          display->showTransmitMessage("Sending", fileName);
-          display->startProgress(length);
+          iecDisplay->showTransmitMessage("Sending", fileName);
+          iecDisplay->startProgress(length);
 
           // send data
           uint8_t buf[1024];
@@ -308,7 +312,7 @@ void sendFile()
               if( status==ST_OK )
                 status = recv_status();
               
-              display->updateProgress(i);
+              iecDisplay->updateProgress(i);
               length -= i;
             }
 
@@ -396,9 +400,8 @@ void receiveFile()
               // send initial status
               if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-              IECDisplay *display = iecDrive.getDisplay();
-              display->showTransmitMessage("Receiving", fileName);
-              display->startProgress(length);
+              iecDisplay->showTransmitMessage("Receiving", fileName);
+              iecDisplay->startProgress(length);
 
               // receive data
               uint8_t buf[1024];
@@ -438,7 +441,7 @@ void receiveFile()
                         status = ST_COM_ERROR;
                     }
                   
-                  display->updateProgress(n);
+                  iecDisplay->updateProgress(n);
                   length -= n;
                 }
               
@@ -464,6 +467,25 @@ void receiveFile()
 #if DEBUG>0
   Serial1.println();
 #endif
+}
+
+
+void deleteFile()
+{
+  string fileName;
+
+  // receive file name
+  if( recv_string(fileName) )
+    {
+      StatusType status = ST_OK;
+
+      if( !LittleFS.exists(fileName.c_str()) )
+        status = ST_FILE_NOT_FOUND;
+      else if( !LittleFS.remove(fileName.c_str()) )
+        status = ST_WRITE_ERROR;
+
+      send_status(status);
+    }
 }
 
 
@@ -513,7 +535,7 @@ void setConfigValue()
 #if DEBUG>0
       Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
 #endif
-      iecDrive.setConfigValue(key, value);
+      iecConfig.setValue(key, value);
       send_status(ST_OK);
     }
 }
@@ -527,7 +549,7 @@ void getConfigValue()
   string key;
   if( recv_string(key) )
     {
-      string value = iecDrive.getConfigValue(key);
+      string value = iecConfig.getValue(key);
 #if DEBUG>0
       Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
 #endif
@@ -538,7 +560,7 @@ void getConfigValue()
 
 void clearConfig()
 {
-  iecDrive.clearConfig();
+  iecConfig.clear();
   send_status(ST_OK);
 }
 
@@ -558,6 +580,7 @@ void execCmd(CommandType cmd)
     case CMD_SET_CONFIG_VAL: setConfigValue(); break;
     case CMD_GET_CONFIG_VAL: getConfigValue(); break;
     case CMD_CLEAR_CONFIG:   clearConfig(); break;
+    case CMD_DELETE_FILE:    deleteFile(); break;
 
     default: 
       {
@@ -580,14 +603,43 @@ void setup()
   Serial1.print("DEBUG START\r\n");
 #endif
 
+  LittleFS.begin();
   LittleFS.setTimeCallback(mytime);
+
+  iecConfig.begin("/$CONFIG$");
+
+  string displayType = iecConfig.getValue("display");
+  if( displayType.empty() )
+    {
+#if defined(SUPPORT_SSD1306)
+      displayType = "SSD1306";
+#elif defined(SUPPORT_ST7789)
+      displayType = "ST7789";
+#else
+      displayType = "NONE";
+#endif
+      iecConfig.setValue("display", displayType);
+    }
+
+#if DEBUG>0
+  Serial1.printf("Display type: %s\r\n", displayType.c_str());
+#endif
+  iecDisplay = IECDisplay::Create(displayType);
+  iecDisplay->begin();
+
+  iecDrive.setConfig(&iecConfig);
+  iecDrive.setDisplay(iecDisplay);
+  iecPrinter.setConfig(&iecConfig);
+  iecPrinter.setDisplay(iecDisplay);
 
 #ifdef SUPPORT_PARALLEL
   iecBus.setParallelPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
                          PIN_PAR_PB0, PIN_PAR_PB1, PIN_PAR_PB2, PIN_PAR_PB3,
                          PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
 #endif
+
   iecBus.attachDevice(&iecDrive);
+  iecBus.attachDevice(&iecPrinter);
   iecBus.begin();
 }
 

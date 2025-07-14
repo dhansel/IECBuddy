@@ -1,5 +1,7 @@
 #include <string>
 
+#define PRINTDATAFILE "$PRINTDATA$"
+
 #define CMD_DIR              1
 #define CMD_GETFILE          2
 #define CMD_PUTFILE          3
@@ -11,6 +13,7 @@
 #define CMD_SET_CONFIG_VAL   9
 #define CMD_GET_CONFIG_VAL  10
 #define CMD_CLEAR_CONFIG    11
+#define CMD_DELETE_FILE     12
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0

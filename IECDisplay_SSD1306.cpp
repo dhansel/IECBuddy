@@ -181,4 +181,10 @@ void IECDisplay_SSD1306::update(const char *statusMessage)
     }
 }
 
+
+void IECDisplay_SSD1306::showPrintStatus(bool printing)
+{
+}
+
+
 #endif

@@ -73,6 +73,32 @@ bool IECDisplay::isErrorStatus(const char *statusMessage)
 }
 
 
+void IECDisplay::showPrintStatus(bool printing)
+{
+}
+
+
 void IECDisplay::update(const char *statusMessage) 
 {
+}
+
+
+IECDisplay *IECDisplay::Create(string displayType)
+{
+  IECDisplay *display;
+
+  if( displayType=="NONE" )
+    display = new IECDisplay(); // no display
+#if defined(SUPPORT_SSD1306)
+  else if( displayType=="SSD1306" )
+    display = new IECDisplay_SSD1306();
+#endif
+#if defined(SUPPORT_ST7789)
+  else if( displayType=="ST7789" )
+    display = new IECDisplay_ST7789();
+#endif
+  else
+    display = new IECDisplay(); // no display
+
+  return display;
 }

@@ -1,34 +1,147 @@
 #include <stdio.h>
 #include <iostream>
+#include <algorithm>
 #include "ceserial.h"
 #include "../protocol.h"
 using namespace std;
 
+extern "C" {
+#include "drv-nl10.h"
+}
+
 #define DEBUG 0
+
+// ------------ Printer data file reader class
+
+class PrinterDataFile
+{
+public:
+  PrinterDataFile(string fname);
+  ~PrinterDataFile();
+
+  bool    IsNewDataBlock() { bool b = m_newBlock; m_newBlock = false; return b; }
+  uint8_t GetChannel()     { return m_channel; }
+  int     GetNextByte();
+
+private:
+  void ReadHeader();
+
+  FILE   *m_file;
+  uint8_t m_zeroCount;
+  uint8_t m_channel;
+  bool    m_newBlock;
+};
+
+
+PrinterDataFile::PrinterDataFile(string fname)
+{
+  m_file      = fopen(fname.c_str(), "rb");
+  m_channel   = 0xFF;
+  m_newBlock  = false;
+  m_zeroCount = 0;
+  ReadHeader();
+}
+
+PrinterDataFile::~PrinterDataFile()
+{
+  fclose(m_file);
+}
+
+PrinterDataFile::GetNextByte()
+{
+  if( m_file )
+    {
+      uint8_t data;
+        
+      if( m_zeroCount>0 )
+        {
+          m_zeroCount--;
+          return 0;
+        }
+      else if( fread(&data, 1, 1, m_file)==1 )
+        {
+          if( data==0 )
+            {
+              fread(&m_zeroCount, 1, 1, m_file);
+              if( m_zeroCount==0 )
+                {
+                  ReadHeader();
+                  return GetNextByte();
+                }
+              else
+                {
+                  m_zeroCount--;
+                  return 0;
+                }
+            }
+          else
+            return data;
+        }
+    }
+
+  return -1;
+}
+
+void PrinterDataFile::ReadHeader()
+{
+  uint8_t buffer[4];
+  if( fread(buffer, 1, 4, m_file)==4 &&
+      buffer[0]=='P' && buffer[1]=='D' && buffer[2]=='B' )
+    {
+      m_newBlock = true;
+      if( buffer[3]>='0' && buffer[3]<='9' ) 
+        m_channel = buffer[3]-'0';
+      else if( buffer[3]>='A' && buffer[3]<='F' ) 
+        m_channel = buffer[3]-'A'+10;
+      else
+        fseek(m_file, 0, SEEK_END);
+    }
+  else
+    fseek(m_file, 0, SEEK_END);
+}
+
 
 // ------------------ helper functions -----------------
 
 static ceSerial com;
 
 #define SHOW_LOWERCASE 0
+uint8_t toPETSCII(uint8_t c)
+{
+  if( c>=65 && c<=90 && SHOW_LOWERCASE )
+    c += 32;
+  else if( c>=97 && c<=122 )
+    c -= 32;
+  
+  return c;
+}
+
+
 string toPETSCII(const string &s)
 {
   string rs;
   rs.reserve(s.length());
 
   for(size_t i=0; i<s.length(); i++)
-    {
-      char c = s[i];
-
-      if( c>=65 && c<=90 && SHOW_LOWERCASE )
-        c += 32;
-      else if( c>=97 && c<=122 )
-        c -= 32;
-
-      rs += c;
-    }
+    rs += char(toPETSCII(s[i]));
   
   return rs;
+}
+
+
+uint8_t fromPETSCII(uint8_t c)
+{
+  if( c==0xFF )
+    c = '~';
+  else if( c>=192 ) 
+    c -= 96;
+  
+  if( c>=65 && c<=90 )
+    c += 32;
+  else if( c>=97 && c<=122 )
+    c -= 32;
+  
+  return c;
 }
 
 
@@ -38,21 +151,7 @@ string fromPETSCII(const string &s)
   rs.reserve(s.length());
 
   for(size_t i=0; i<s.length(); i++)
-    {
-      char c = s[i];
-
-      if( c==0xFF )
-        c = '~';
-      else if( c>=192 ) 
-        c -= 96;
-
-      if( c>=65 && c<=90 )
-        c += 32;
-      else if( c>=97 && c<=122 )
-        c -= 32;
-
-      rs += c;
-    }
+    rs += fromPETSCII(s[i]);
 
   return rs;
 }
@@ -283,7 +382,7 @@ StatusType putFile(const string &fname)
 }
 
 
-StatusType getFile(const string &fname)
+StatusType getFile(const string &fname, string dstfname = "")
 {
   StatusType status = ST_OK;
 
@@ -291,7 +390,7 @@ StatusType getFile(const string &fname)
   printf("getFile(%s)", fname.c_str()); fflush(stdout);
 #endif
 
-  FILE *file = fopen(fname.c_str(), "wb");
+  FILE *file = fopen(dstfname.empty() ? fname.c_str() : dstfname.c_str(), "wb");
   if( file )
     {
       uint32_t length;
@@ -514,6 +613,96 @@ StatusType clearConfig()
 }
 
 
+StatusType deleteFile(const string &fname)
+{
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_DELETE_FILE) )
+      status = ST_COM_ERROR;
+
+  // send file name
+  if( status==ST_OK )
+    if( !send_string(toPETSCII(fname)) )
+      status = ST_COM_ERROR;
+  
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+  
+  return status;
+}
+
+
+void print_data(string datafile, string driver)
+{
+  if( driver=="ascii" )
+    {
+      const char *codes1[32] =
+        {"", "($1)","($2)","($3)","($4)","(WHT)","($6)","($7)",
+         "(DISH)","(ENSH)","","($11)","($12)","\n","(SWLC)","($15)",
+         "($16)","(DOWN)","(RVS)","(HOME)","(DEL)","($21)","($22)","($23)",
+         "($24)","($25)","($26)","(ESC)","(RED)","(RGHT)","(GRN)","(BLU)"};
+
+      const char *codes2[32] =
+        {"($128)","(ORNG)","($130)","($131)","($132)","(F1)","(F3)","(F5)",
+         "(F7)","(F2)","(F4)","(F6)","(F8)","(SHRT)","(SWUC)","($143)",
+         "(BLK)","(UP)","(OFF)","(CLR)","(INST)","(BRN)","(LRED)","(GRY1)",
+         "(GRY2)","(LGRN)","(LBLU)","(GRY3)","(PUR)","(LEFT)","(YEL)","(CYN)"};
+
+      int data;
+      PrinterDataFile f(datafile);
+      while( (data=f.GetNextByte())>=0 )
+        {
+          if( data>=0 && data<32 )
+            printf("%s", codes1[data]);
+          else if( data>=128 && data<128+32 )
+            printf("%s", codes2[data-128]);
+          else
+            printf("%c", (char) fromPETSCII(data));
+        }
+    }
+  else if( driver.substr(0,4) == "nl10" )
+    {
+      int outputformat;
+      string outputfile;
+      if( driver.substr(0,8) == "nl10-pdf" )
+        {
+          outputfile   = "print.pdf";
+          outputformat = OUTPUT_FORMAT_PDF;
+          driver = driver.substr(8);
+        }
+      else
+        {
+          outputfile   = "printpage%02i.bmp";
+          outputformat = OUTPUT_FORMAT_BMP;
+          driver = driver.substr(4);
+        }
+
+      if( driver.length()>1 && driver[0]==' ' )
+        outputfile = driver.substr(1);
+
+      int secondary = 0;
+      drv_nl10_init(outputfile.c_str(), outputformat);
+
+      int data;
+      PrinterDataFile f(datafile);
+      while( (data=f.GetNextByte())>=0 )
+        {
+          if( f.IsNewDataBlock() )
+            drv_nl10_open(f.GetChannel());
+
+          drv_nl10_putc(data);
+        }
+  
+      drv_nl10_formfeed();
+      drv_nl10_close();
+      drv_nl10_shutdown();
+    }
+}
+
+
 // ------------------ main function -----------------
 
 
@@ -532,6 +721,10 @@ void execCommand(string cmd)
   else if( cmd.substr(0, 4)=="put " )
     {
       status = putFile(cmd.substr(4));
+    }
+  else if( cmd.substr(0, 4)=="del " )
+    {
+      status = deleteFile(cmd.substr(4));
     }
   else if( cmd.substr(0, 4)=="cmd " )
     {
@@ -574,6 +767,24 @@ void execCommand(string cmd)
     {
       status = clearConfig();
     }
+  else if( cmd=="print" )
+    {
+      StatusType status = getFile(PRINTDATAFILE, "printdata.dat");
+      if( status==ST_OK )
+        {
+          print_data("printdata.dat", "ascii");
+          deleteFile(PRINTDATAFILE);
+        }
+    }
+  else if( cmd.substr(0,6)=="print " )
+    {
+      StatusType status = getFile(PRINTDATAFILE, "printdata.dat");
+      if( status==ST_OK ) 
+        {
+          print_data("printdata.dat", cmd.substr(6));
+          deleteFile(PRINTDATAFILE);
+        }
+    }
   else
     {
       status = ST_INVALID_COMMAND;
@@ -588,6 +799,7 @@ void showCommands()
   printf("  dir         : display content of LittleFS filesystem\n");
   printf("  get fname   : retrieve file 'fname' from LittleFS filesystem and save to local\n");
   printf("  put fname   : copy file 'fname' from local to LittleFS filesystem\n");
+  printf("  del fname   : delete file 'fname' on LittleFS filesystem\n");
   printf("  status      : display CBMDOS drive status\n");
   printf("  cmd command : execute CBMDOS 'command' on the drive\n");
   printf("  mount image : mount the given D64/G64/G81... image (image file must exist)\n");
@@ -606,6 +818,17 @@ int main(int argc, char **argv)
     {
       printf("Usage: fstest.exe portName [command] [command] ...\n");
       showCommands();
+    }
+  else if( argc==2 )
+    {
+      string driver, fname;
+      char *c = strchr(argv[1], '@');
+      if( c==NULL )
+        { driver="ascii"; fname = string(argv[1]); }
+      else
+        { *c = 0; fname=string(argv[1]); driver=string(c+1); }
+
+      print_data(fname, driver);
       return 0;
     }
   else

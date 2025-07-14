@@ -1,6 +1,6 @@
-#include "IECSidekick64.h"
-#include "IECDisplay_SSD1306.h"
-#include "IECDisplay_ST7789.h"
+#include "IECDrive.h"
+#include "IECConfig.h"
+#include "IECDisplay.h"
 #include "Pins.h"
 #include <LittleFS.h>
 #include <algorithm>
@@ -26,8 +26,6 @@ using namespace std;
 #define FT_PRG       0x01
 #define FT_SEQ       0x02
 #define FT_ANY       0xFF
-
-#define CONFIGFILENAME "$CONFIG$"
 
 #ifndef min
 #define min(a,b) ((a)<(b) ? (a) : (b))
@@ -67,18 +65,18 @@ static void diskChangeButtonFcn()
 }
 
 
-IECSidekick64::IECSidekick64(uint8_t devnum, uint8_t pinLED) :
+IECDrive::IECDrive(uint8_t devnum, uint8_t pinLED) :
   IECFileDevice(devnum)
 {
   m_pinLED = pinLED;
   m_dirOpen = false;
   m_drive = NULL;
   m_curFileChannel = -1;
-  m_display = new IECDisplay(); // no display
+  m_display = NULL;
 }
 
 
-void IECSidekick64::begin()
+void IECDrive::begin()
 {
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   attachInterrupt(PIN_BUTTON, diskChangeButtonFcn, CHANGE);
@@ -96,43 +94,11 @@ void IECSidekick64::begin()
 
   setLEDState(LED_GREEN);
   m_errorCode = E_SPLASH;
-  LittleFS.begin();
-  readConfig();
-
-  int d = std::atoi(getConfigValue("device").c_str());
-  if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
-
-  string displayType = getConfigValue("display");
-  if( displayType.empty() )
-    {
-#if defined(SUPPORT_SSD1306)
-      displayType = "SSD1306";
-#elif defined(SUPPORT_ST7789)
-      displayType = "ST7789";
-#else
-      displayType = "NONE";
-#endif
-      setConfigValue("display", displayType);
-    }
-
-  delete m_display;
-
-  if( displayType=="NONE" )
-    m_display = new IECDisplay(); // no display
-#if defined(SUPPORT_SSD1306)
-  else if( displayType=="SSD1306" )
-    m_display = new IECDisplay_SSD1306();
-#endif
-#if defined(SUPPORT_ST7789)
-  else if( displayType=="ST7789" )
-    m_display = new IECDisplay_ST7789();
-#endif
-  else
-    m_display = new IECDisplay(); // no display
-
   m_drive = new VDrive(0);
 
-  m_display->begin();
+  int d = std::atoi(m_config->getValue("device").c_str());
+  if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
+
   updateDisplay();
 
   // call this after m_display->begin() since this sets all IEC and parallel cable
@@ -149,7 +115,7 @@ void IECSidekick64::begin()
 }
 
 
-void IECSidekick64::task()
+void IECDrive::task()
 {
   // handle status LED
   if( m_pinLED<0xFF )
@@ -182,7 +148,7 @@ void IECSidekick64::task()
 
       m_display->showMessage("Searching...");
 
-      string favlist = getConfigValue("favlist");
+      string favlist = m_config->getValue("favlist");
       if( favlist.length()%32==0 && favlist.find('.')!=string::npos )
         {
           // we have a properly sized favlist containing at least one item
@@ -254,83 +220,8 @@ void IECSidekick64::task()
 
 
 
-void IECSidekick64::clearConfig()
-{
-  LittleFS.remove("/" CONFIGFILENAME);
-  m_config.clear();
-}
-
-
-const string &IECSidekick64::getConfigValue(const string &key)
-{
-  return m_config[tolower(key)];
-}
-
-
-void IECSidekick64::setConfigValue(const string &key, const string &value, bool write)
-{
-  m_config[tolower(key)] = value;
-  if( write ) writeConfig();
-}
-
-
-void IECSidekick64::readConfig()
-{
-  bool ok = false;
-
-  m_config.clear();
-  File f = LittleFS.open("/" CONFIGFILENAME, "r");
-  if( f )
-    {
-      char *s = (char *) calloc(1, f.size()+1);
-      if( s )
-        {
-          ok = f.read((uint8_t *) s, f.size())==f.size();
-          if( ok )
-            {
-              char *p;
-              for(char *line=strtok_r(s, "\n", &p); line!=NULL; line=strtok_r(NULL, "\n", &p))
-                {
-                  char *eq = strchr(line, '=');
-                  if( eq!=NULL )
-                    {
-                      *eq = 0;
-                      m_config[tolower(string(line))]=string(eq+1);
-                    }
-                }
-            }
-          free(s);
-        }
-      
-      f.close();
-    }
-
-  if( !ok )
-    {
-      m_config.clear();
-      m_config["device"] = std::to_string(m_devnr);
-      writeConfig();
-    }
-}
-
-
-void IECSidekick64::writeConfig()
-{
-  File f = LittleFS.open("/" CONFIGFILENAME, "w");
-  if( f )
-    {
-      for(const std::pair<const string, string>&cfg : m_config)
-        {
-          string line = cfg.first + "=" + cfg.second + "\n";
-          f.write((uint8_t *) line.c_str(), line.length());
-        }
-      f.close();
-    }
-}
-
-
 #if defined(SUPPORT_EPYX) && defined(SUPPORT_EPYX_SECTOROPS)
-bool IECSidekick64::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+bool IECDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 {
   bool res = false;
 
@@ -344,7 +235,7 @@ bool IECSidekick64::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffe
 }
 
 
-bool IECSidekick64::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+bool IECDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 {
   bool res = false;
 
@@ -359,7 +250,7 @@ bool IECSidekick64::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buff
 #endif
 
 
-string IECSidekick64::stripFileName(const char *cname)
+string IECDrive::stripFileName(const char *cname)
 {
   if( cname[0]=='@' ) cname++;
 
@@ -374,7 +265,7 @@ string IECSidekick64::stripFileName(const char *cname)
 }
 
 
-bool IECSidekick64::isHiddenFile(const char *name)
+bool IECDrive::isHiddenFile(const char *name)
 {
   if( name==NULL )
     return false;
@@ -386,7 +277,7 @@ bool IECSidekick64::isHiddenFile(const char *name)
 }
 
 
-uint8_t IECSidekick64::openDir(const char *name)
+uint8_t IECDrive::openDir(const char *name)
 {
   m_dir = LittleFS.openDir("/");
   m_dirOpen = true;
@@ -399,7 +290,7 @@ uint8_t IECSidekick64::openDir(const char *name)
   m_dirBuffer[5] = 0;
   m_dirBuffer[6] = 18;
   m_dirBuffer[7] = '"';
-  strcpy(m_dirBuffer+8, "SIDEKICK64");
+  strcpy(m_dirBuffer+8, "DRIVE");
   size_t n = strlen(m_dirBuffer+8);
   while( n<16 ) { m_dirBuffer[8+n] = ' '; n++; }
   strcpy(m_dirBuffer+24, "\" 00 2A");
@@ -419,7 +310,7 @@ uint8_t IECSidekick64::openDir(const char *name)
 }
 
 
-bool IECSidekick64::readDir(uint8_t *data)
+bool IECDrive::readDir(uint8_t *data)
 {
   if( m_dirBufferPtr==m_dirBufferLen && m_dirOpen )
     {
@@ -508,7 +399,7 @@ bool IECSidekick64::readDir(uint8_t *data)
 }
 
 
-bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t ftypes)
+bool IECDrive::isMatch(const char *name, const char *pattern, uint8_t ftypes)
 {
   signed char found = -1;
 
@@ -552,7 +443,7 @@ bool IECSidekick64::isMatch(const char *name, const char *pattern, uint8_t ftype
 }
 
 
-const char *IECSidekick64::findFile(const char *pattern, uint8_t ftypes)
+const char *IECDrive::findFile(const char *pattern, uint8_t ftypes)
 {
   bool found = false;
   static String name;
@@ -568,7 +459,7 @@ const char *IECSidekick64::findFile(const char *pattern, uint8_t ftypes)
 }
 
 
-uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
+uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
 {
   uint8_t res = E_OK;
   uint8_t ftype = FT_PRG;
@@ -676,7 +567,7 @@ uint8_t IECSidekick64::openFile(uint8_t channel, const char *constName)
 }
 
 
-bool IECSidekick64::open(uint8_t channel, const char *name)
+bool IECDrive::open(uint8_t channel, const char *name)
 {
   if( m_drive->isOk() )
     m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
@@ -714,7 +605,7 @@ bool IECSidekick64::open(uint8_t channel, const char *name)
 }
 
 
-uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi)
+uint8_t IECDrive::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi)
 {
   uint8_t n = 0;
 
@@ -738,7 +629,7 @@ uint8_t IECSidekick64::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize
 }
 
 
-uint8_t IECSidekick64::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi)
+uint8_t IECDrive::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi)
 {
   uint8_t n = 0;
 
@@ -760,7 +651,7 @@ uint8_t IECSidekick64::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSiz
 }
 
 
-void IECSidekick64::close(uint8_t channel)
+void IECDrive::close(uint8_t channel)
 {
   if( m_drive->isFileOk(channel) )
     {
@@ -783,7 +674,7 @@ void IECSidekick64::close(uint8_t channel)
 }
 
 
-void IECSidekick64::execute(const char *command, uint8_t len)
+void IECDrive::execute(const char *command, uint8_t len)
 {
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
@@ -812,7 +703,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
           int d = atoi(command+1);
           if( d>=4 && d<=15 )
             {
-              setConfigValue("device", std::to_string(d));
+              m_config->setValue("device", std::to_string(d));
               setDeviceNumber(d);
               m_errorCode = E_OK;
             }
@@ -969,11 +860,11 @@ void IECSidekick64::execute(const char *command, uint8_t len)
       char *c = strchr(command, '=');
       if( c==NULL )
         {
-          string v = getConfigValue(command) + "\r";
+          string v = m_config->getValue(command) + "\r";
           setStatus(v.c_str(), v.size());
         }
       else
-        setConfigValue(string(command).substr(0, c-command), string(c+1));
+        m_config->setValue(string(command).substr(0, c-command), string(c+1));
 
       m_errorCode = E_OK;
     }
@@ -985,7 +876,7 @@ void IECSidekick64::execute(const char *command, uint8_t len)
 }
 
 
-const char *IECSidekick64::getStatusMessage(uint8_t statusCode)
+const char *IECDrive::getStatusMessage(uint8_t statusCode)
 {
   const char *message = NULL;
 
@@ -1003,7 +894,7 @@ const char *IECSidekick64::getStatusMessage(uint8_t statusCode)
     case E_INVCMD:
     case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
     case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
-    case E_SPLASH:               { message = "IEC-SIDEKICK64 V0.1"; break; }
+    case E_SPLASH:               { message = "IEC-DRIVE V0.1"; break; }
     default:                     { message = "UNKNOWN"; break; }
     }
 
@@ -1011,7 +902,7 @@ const char *IECSidekick64::getStatusMessage(uint8_t statusCode)
 }
 
 
-void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
+void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
 {
   if( m_errorCode==E_VDRIVE )
     {
@@ -1043,7 +934,7 @@ void IECSidekick64::getStatus(char *buffer, uint8_t bufferSize)
 }
 
 
-void IECSidekick64::unmountDiskImage()
+void IECDrive::unmountDiskImage()
 {
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
@@ -1053,7 +944,7 @@ void IECSidekick64::unmountDiskImage()
 }
 
 
-bool IECSidekick64::mountDiskImage(const char *name)
+bool IECDrive::mountDiskImage(const char *name)
 {
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
@@ -1066,13 +957,13 @@ bool IECSidekick64::mountDiskImage(const char *name)
 }
 
 
-const char *IECSidekick64::getMountedImageName()
+const char *IECDrive::getMountedImageName()
 {
   return m_drive->getDiskImageFilename();
 }
 
 
-void IECSidekick64::reset()
+void IECDrive::reset()
 {
   unsigned long ledTestEnd = millis() + 250;
   setLEDState(LED_GREEN);
@@ -1098,7 +989,7 @@ void IECSidekick64::reset()
 }
 
 
-void IECSidekick64::updateDisplay()
+void IECDrive::updateDisplay()
 {
   char buf[22];
   if( m_errorCode==E_VDRIVE )
@@ -1115,7 +1006,7 @@ void IECSidekick64::updateDisplay()
 }
 
 
-void IECSidekick64::setLEDState(int color)
+void IECDrive::setLEDState(int color)
 {
   if( m_pinLED<0xFF ) 
     {
