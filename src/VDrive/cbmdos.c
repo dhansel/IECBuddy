@@ -396,7 +396,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
         if (p2 && *p == '@') {
             special = 1;
         }
-        if (p2 || special) {
+        if ((p2 && p2!=p) || special) {
             /* check for anything before unit/partition number (@,&), but not a '/' */
             if (*p != '/' && (*p < '0' || *p > '9')) {
                 p1 = p;

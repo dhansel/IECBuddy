@@ -497,6 +497,11 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
             status = SERIAL_ERROR;
             goto out;
         }
+        else if (cmd_parse->filelength==0 && cmd_parse->command==NULL) {
+            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_NAME, 0, 0);
+            status = SERIAL_ERROR;
+            goto out;
+        }
 #ifdef DEBUG_DRIVE
         log_debug(LOG_DEFAULT, "Raw file name: `%s', length: %u.", name, length);
         log_debug(LOG_DEFAULT, "Parsed file name: `%s', reallength: %u. drive: %i",
