@@ -801,31 +801,31 @@ static void print_char(nl10_t *nl10, const uint8_t c)
         }
     }
 
-    /* ensure that top margin is honored */
-    while (nl10->line_nr <= nl10->marg_t) {
-        linefeed(nl10);
-    }
-
-    /* ensure that left margin is honored */
-    if (nl10->pos_x < nl10->marg_l) {
-        nl10->pos_x = nl10->marg_l;
-    }
-
-    /* ensure that right margin is honored */
-    if ((nl10->pos_x + get_char_width(nl10, c, 0)) > nl10->marg_r) {
-        linefeed(nl10);
-        nl10->pos_x = nl10->marg_l;
-        nl10->col_nr = 0;
-    }
-
-    /* ensure that bottom margin is honored */
-    if (nl10->marg_b > 0 && nl10->line_nr > ((MAX_ROW - 2 * BORDERY) / (nl10->linespace * 4 / 3) - nl10->marg_b)) {
-        formfeed(nl10);
-    }
-
     /* check if character is part of a control sequence and, if so, process it there.
        Otherwise draw the character. */
     if (!handle_control_sequence(nl10, c)) {
+        /* ensure that top margin is honored */
+        while (nl10->line_nr <= nl10->marg_t) {
+          linefeed(nl10);
+        }
+
+        /* ensure that left margin is honored */
+        if (nl10->pos_x < nl10->marg_l) {
+          nl10->pos_x = nl10->marg_l;
+        }
+
+        /* ensure that right margin is honored */
+        if ((nl10->pos_x + get_char_width(nl10, c, 0)) > nl10->marg_r) {
+          linefeed(nl10);
+          nl10->pos_x = nl10->marg_l;
+          nl10->col_nr = 0;
+        }
+
+        /* ensure that bottom margin is honored */
+        if (nl10->marg_b > 0 && nl10->line_nr > ((MAX_ROW - 2 * BORDERY) / (nl10->linespace * 4 / 3) - nl10->marg_b)) {
+          formfeed(nl10);
+        }
+
         if (c == '"') {
             if (is_mode(nl10, NL10_QUOTED)) {
                 del_mode(nl10, NL10_QUOTED);
