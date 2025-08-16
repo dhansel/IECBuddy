@@ -21,50 +21,59 @@
 
 #include "../../Pins.h"
 
-// un-comment this if you are using 74LS07 open-collector drivers for
-// the CLK/DATA lines. If so, the IECBusHandler constructor requires
+// un-comment this if you are using open-collector drivers for the CLK/DATA
+// lines (e.g. a 74LS07). If so, the IECBusHandler constructor requires
 // two extra pins for the CLK/DATA output signals
 #if defined(PIN_IEC_CLK_OUT) && defined(PIN_IEC_DATA_OUT)
-#define USE_LINE_DRIVERS
+#define IEC_USE_LINE_DRIVERS
 #endif
 
 // un-comment this IN ADDITION to USE_LINE_DRIVERS if you are using inverted
 // line drivers (such as 74LS06)
-//#define USE_INVERTED_LINE_DRIVERS
+//#define IEC_USE_INVERTED_LINE_DRIVERS
 
-// comment or un-comment these #defines to completely enable/disable support
-// for the corresponding fast-load protocols
-#define SUPPORT_JIFFY
-#define SUPPORT_EPYX
+// un-comment these #defines to completely disable support for the
+// corresponding fast-load protocols (saves program memory in small devices)
+#define IEC_FP_JIFFY     0 // JiffyDos
+#define IEC_FP_EPYX      1 // EPYX FastLoad
+#define IEC_FP_FC3       2 // Final Cartridge 3
+#define IEC_FP_AR6       3 // Action Replay 6
 #if defined(PIN_PAR_FLAG2) && defined(PIN_PAR_PC2)
-#define SUPPORT_DOLPHIN
-#define SUPPORT_SPEEDDOS
+#define IEC_FP_DOLPHIN   4 // Dolphin Dos
+#define IEC_FP_SPEEDDOS  5 // Speed Dos
+#endif
+
+// convenience macro, IEC_SUPPORT_FASTLOAD is defined if any fast-load protocols
+// are enabled
+#if defined(IEC_FP_JIFFY) || defined(IEC_FP_EPYX) || defined(IEC_FP_FC3) || defined(IEC_FP_AR6) || defined(IEC_FP_DOLPHIN) || defined(IEC_FP_SPEEDDOS)
+#define IEC_SUPPORT_FASTLOAD
 #endif
 
 // un-comment this to use a XRA1405 port expander for the 8-bit parallel cable
 // instead of connecting the parallel pins directly to the microcontroller
-//#define SUPPORT_PARALLEL_XRA1405
+//#define IEC_SUPPORT_PARALLEL_XRA1405
 
 // support Epyx FastLoad sector operations (disk editor, disk copy, file copy)
 // if this is enabled then the buffer in the setBuffer() call must have a size of
 // at least 256 bytes. Note that the "bufferSize" argument is a byte and therefore
 // capped at 255 bytes. Make sure the buffer itself has >=256 bytes and use a 
 // bufferSize argument of 255 or less
-#define SUPPORT_EPYX_SECTOROPS
+#define IEC_FP_EPYX_SECTOROPS
 
 // defines the maximum number of devices that the bus handler will be
 // able to support - set to 4 by default but can be increased to up to 30 devices
-#define MAX_DEVICES 2
+#define IEC_MAX_DEVICES 2
 
 // sets the default size of the fastload buffer. If this is set to 0 then fastload
 // protocols can only be used if the IECBusHandler::setBuffer() function is
-// called to define the buffer.
-#if defined(SUPPORT_JIFFY) || defined(SUPPORT_DOLPHIN) || defined(SUPPORT_EPYX)
+// called to define the buffer. 128 should be a good value, larger values have
+// little effect on transmission speed. Values are capped at 254.
+#if defined(IEC_SUPPORT_FASTLOAD)
 #define IEC_DEFAULT_FASTLOAD_BUFFER_SIZE 128
 #endif
 
 // buffer size for IECFileDevice when receiving data. On channel 15, any command
-// longer than this (received in a single transaction) will be discarded.
+// longer than this (received in a single transaction) will be cut off.
 // For other channels, the device's write() function will be called once the
 // buffer is full. Every instance of IECFileDevice will allocate this buffer
 // so it should be kept small on platforms with little RAM (e.g. Arduino UNO)
@@ -76,10 +85,10 @@
 // kept small on platforms with little RAM (e.g. Arduino UNO)
 #define IECFILEDEVICE_STATUS_BUFFER_SIZE 128
 
-// convenience macro, SUPPORT_PARALLEL is defined if any of the supported
+// convenience macro, IEC_SUPPORT_PARALLEL is defined if any of the supported
 // fast-load protocols use a parallel cable
-#if defined(SUPPORT_DOLPHIN) || defined(SUPPORT_SPEEDDOS)
-#define SUPPORT_PARALLEL
+#if defined(IEC_FP_DOLPHIN) || defined(IEC_FP_SPEEDDOS)
+#define IEC_SUPPORT_PARALLEL
 #endif
 
 #endif

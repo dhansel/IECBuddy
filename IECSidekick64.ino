@@ -56,7 +56,7 @@ IECDisplay *iecDisplay = NULL;
 #define PIN_IEC_RESET 0xFF
 #endif
 
-#ifdef USE_LINE_DRIVERS
+#ifdef IEC_USE_LINE_DRIVERS
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_CLK_OUT, PIN_IEC_DATA, PIN_IEC_DATA_OUT, PIN_IEC_RESET);
 #else
 IECBusHandler iecBus(PIN_IEC_ATN, PIN_IEC_CLK, PIN_IEC_DATA, PIN_IEC_RESET);
@@ -632,7 +632,7 @@ void setup()
   iecPrinter.setConfig(&iecConfig);
   iecPrinter.setDisplay(iecDisplay);
 
-#ifdef SUPPORT_PARALLEL
+#ifdef IEC_SUPPORT_PARALLEL
   iecBus.setParallelPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
                          PIN_PAR_PB0, PIN_PAR_PB1, PIN_PAR_PB2, PIN_PAR_PB3,
                          PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
