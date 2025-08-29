@@ -14,6 +14,7 @@
 #define CMD_GET_CONFIG_VAL  10
 #define CMD_CLEAR_CONFIG    11
 #define CMD_DELETE_FILE     12
+#define CMD_SHOW_BITMAP     13
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0

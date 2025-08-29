@@ -3,6 +3,7 @@
 
 
 #include <string>
+#include <stdint.h>
 
 class IECDisplay
 {
@@ -22,6 +23,8 @@ class IECDisplay
   virtual void startProgress(int nbytestotal);
   virtual void updateProgress(int nbytes);
   virtual void update(const char *statusMessage);
+
+  virtual void setBackgroundImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap_rgb565) {}
 
   static IECDisplay *Create(std::string displayType);
 

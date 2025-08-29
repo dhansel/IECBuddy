@@ -12,19 +12,53 @@ class Arduino_ST7789m : public Arduino_ST7789
 {
 public:
   Arduino_ST7789m(Arduino_DataBus *bus, int8_t rst = GFX_NOT_DEFINED) : 
-    Arduino_ST7789(bus, rst, 0, false, 240, 240) {}
+    Arduino_ST7789(bus, rst, 0, false, 240, 240) { m_bitmap_rgb565 = NULL; }
+
+  virtual ~Arduino_ST7789m()
+    { delete m_bitmap_rgb565; }
 
   bool begin(int32_t speed, int8_t spiMode)
     { _override_datamode = spiMode; return Arduino_TFT::begin(speed); }
 
   void clearDisplay() 
-    { fillScreen(RGB565_BLACK); }
+    { 
+      if( m_bitmap_rgb565==NULL )
+        fillScreen(RGB565_BLACK);
+      else
+        {
+          startWrite();
+          writeAddrWindow(0, 0, width(), height());
+          _bus->writePixels(m_bitmap_rgb565, width()*height());
+          endWrite();
+        }
+    }
 
   void clearCurrentLine()
-    { fillRect(0, cursor_y, width(), getTextLineHeight(), RGB565_BLACK); }
+    { 
+      if( m_bitmap_rgb565==NULL )
+        fillRect(0, cursor_y, width(), getTextLineHeight(), RGB565_BLACK);
+      else
+        {
+          uint16_t *d = m_bitmap_rgb565 + cursor_y * width();
+          size_t   n = width()*height();
+          startWrite();
+          writeAddrWindow(0, cursor_y, width(), getTextLineHeight());
+          _bus->writePixels(m_bitmap_rgb565+cursor_y*width(), width()*getTextLineHeight());
+          endWrite();
+        }
+    }
 
   int getTextLineHeight()
     { return (gfxFont==NULL ? 8 : gfxFont->yAdvance) * textsize_y; }
+
+  void setBackgroundImage(uint16_t *bitmap_rgb565)
+    {
+      if( m_bitmap_rgb565!=NULL ) free(m_bitmap_rgb565);
+      m_bitmap_rgb565 = bitmap_rgb565; 
+    }
+
+private:
+  uint16_t *m_bitmap_rgb565;
 };
 
 
@@ -215,5 +249,39 @@ void IECDisplay_ST7789::showPrintStatus(bool printing)
     }
 }
 
+
+void IECDisplay_ST7789::setBackgroundImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap_rgb565)
+{
+  uint16_t dw = m_display->width(), dh = m_display->height();
+
+  if( x>0 || y>0 || w!=dw || h!=dh )
+    {
+      // if x/y is out of range then center image
+      if( x>dw ) x = (w < dw) ? (dw-w)/2 : 0;
+      if( y>dh ) y = (h < dh) ? (dh-h)/2 : 0;
+
+      // not a full-screen bitmap => move/clip
+      uint16_t *full_bitmap = (uint16_t *) calloc(dw*dh, sizeof(uint16_t));
+      if( full_bitmap!=NULL )
+        {
+          for(uint16_t yy=0; yy<h && y+yy<dh; yy++)
+            for(uint16_t xx=0; xx<w && x+xx<dw; xx++)
+              full_bitmap[(y+yy)*dw+x+xx] = bitmap_rgb565[yy*w+xx];
+            
+          free(bitmap_rgb565);
+          bitmap_rgb565 = full_bitmap;
+        }
+      else
+        {
+          // unable to create full-screen bitmap => clear background image
+          free(bitmap_rgb565);
+          bitmap_rgb565 = NULL;
+        }
+    }
+  
+  m_display->setBackgroundImage(bitmap_rgb565);
+  m_doClear = true;
+  update(NULL);
+}
 
 #endif

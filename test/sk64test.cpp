@@ -635,6 +635,61 @@ StatusType deleteFile(const string &fname)
 }
 
 
+StatusType sendBitmap(const string &fname, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+{
+  uint32_t nbytes = w*h*2;
+  uint8_t *buffer = NULL;
+  StatusType status = ST_OK;
+
+  FILE *f = fopen(fname.c_str(), "rb");
+  if( f )
+    {
+      buffer = (uint8_t *) malloc(nbytes);
+      if( fread(buffer, 1, nbytes, f)!=nbytes )
+        status = ST_INVALID_DATA;
+      fclose(f);
+    }
+  else
+    status = ST_FILE_NOT_FOUND;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_SHOW_BITMAP) )
+      status = ST_COM_ERROR;
+
+  // send position/size
+  if( status==ST_OK )
+    if( !send_uint(x) || !send_uint(y) || !send_uint(w) || !send_uint(h) )
+      status = ST_COM_ERROR;
+
+  // send image data
+  if( status==ST_OK )
+    {
+      uint8_t *ptr = buffer;
+      while( nbytes>0 && (status=recv_status())==ST_OK )
+        {
+          uint32_t n = min(1024u, nbytes);
+          if( send_data(n, ptr) )
+            {
+              ptr += n;
+              nbytes -= n;
+            }
+          else
+            status = ST_COM_ERROR;
+        }
+    }
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+
+  if( buffer!=NULL )
+    free(buffer);
+
+  return status;
+}
+
+
 void print_data(string datafile, string driver)
 {
   if( driver=="ascii" )
@@ -785,12 +840,28 @@ void execCommand(string cmd)
           deleteFile(PRINTDATAFILE);
         }
     }
+  else if( cmd.substr(0, 7)=="bitmap " )
+    {
+      int w, h, x, y;
+      char buffer[1024];
+      int n = sscanf(cmd.substr(7).c_str(), "%s %i %i %i %i", buffer, &w, &h, &x, &y);
+      if( n<2 ) w = 240;
+      if( n<3 ) h = 240;
+      if( n<4 ) x = -1;
+      if( n<5 ) y = -1;
+      status = sendBitmap(buffer, x, y, w, h);
+    }
   else
     {
       status = ST_INVALID_COMMAND;
     }
 
-  if( status!=ST_OK ) printf("Error: %s (%i)\n", get_status_msg(status), status);
+  if( status!=ST_OK )
+    printf("Error: %s (%i)\n", get_status_msg(status), status);
+#if DEBUG>0
+  else
+    printf("OK!\n");
+#endif
 }
 
 void showCommands()
@@ -808,6 +879,7 @@ void showCommands()
   printf("  setconfigval key value : set the value of 'key' to 'value' in the $CONFIG$ file\n");
   printf("  getconfigval key       : print the current value of 'key' in the $CONFIG$ file\n");
   printf("  clearconfig            : clear ALL settings in the $CONFIG$ file\n");
+  printf("  bitmap fname [w] [h] [x] [y] : send RGB565 bitmap file fname, if w/h missing then assumed 240, if x/y missing then center\n");
 }
 
 

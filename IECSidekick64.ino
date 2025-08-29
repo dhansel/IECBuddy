@@ -565,6 +565,53 @@ void clearConfig()
 }
 
 
+void showBitmap()
+{
+  StatusType status = ST_OK;
+
+  uint32_t x, y, w, h;
+  if( !recv_uint(x) || !recv_uint(y) || !recv_uint(w) || !recv_uint(h) )
+    status = ST_COM_ERROR;
+
+  if( status==ST_OK )
+    {
+      uint32_t nbytes = w*h*2;
+      uint8_t *buffer = (uint8_t *) malloc(nbytes);
+      if( buffer==NULL )
+        status = ST_DRIVE_FULL;
+      else
+        {
+          uint8_t *ptr = buffer;
+          while( nbytes>0 && status==ST_OK )
+            {
+              if( !send_status(ST_OK) )
+                status = ST_COM_ERROR;
+              else
+                {
+                  uint32_t n = min(1024, nbytes);
+                  if( recv_data(n, ptr) )
+                    {
+                      ptr += n;
+                      nbytes -= n;
+                    }
+                  else
+                    status = ST_COM_ERROR;
+                }
+            }
+        }
+      
+      if( status==ST_OK )
+        {
+          // NOTE: iecDisplay takes ownership of image data
+          iecDisplay->setBackgroundImage((uint16_t) x, (uint16_t) y, (uint16_t) w, (uint16_t) h, (uint16_t *) buffer);
+          iecDrive.updateDisplay();
+        }
+    }
+  
+  send_status(status);
+}
+
+
 void execCmd(CommandType cmd)
 {
   switch( cmd )
@@ -581,6 +628,7 @@ void execCmd(CommandType cmd)
     case CMD_GET_CONFIG_VAL: getConfigValue(); break;
     case CMD_CLEAR_CONFIG:   clearConfig(); break;
     case CMD_DELETE_FILE:    deleteFile(); break;
+    case CMD_SHOW_BITMAP:    showBitmap(); break;
 
     default: 
       {
@@ -625,6 +673,27 @@ void setup()
   Serial1.printf("Display type: %s\r\n", displayType.c_str());
 #endif
   iecDisplay = IECDisplay::Create(displayType);
+
+#if 0
+  File f = LittleFS.open("/DRIVE_RGB565.BIN", "r");
+  if( f )
+    {
+      int s = 240 * 240;
+      uint16_t *bitmap_rgb565 = new uint16_t[s];
+      if( f.read((uint8_t *) bitmap_rgb565, s*2) == s*2 )
+        iecDisplay->setBackgroundImage(bitmap_rgb565);
+#if DEBUG>0
+      else
+        Serial1.println("Can't load background image");
+#endif
+      f.close();
+    }
+#if DEBUG>0
+  else
+    Serial1.println("Can't open background image");
+#endif
+#endif
+
   iecDisplay->begin();
 
   iecDrive.setConfig(&iecConfig);
