@@ -144,7 +144,7 @@ void IECPrinter::task()
       if( m_zeroCount>0 )
         {
           buf[0] = 0; buf[1] = m_zeroCount;
-          m_printerFile.write(buf, 4);
+          m_printerFile.write(buf, 2);
         }
 
       // double-zero marks end of data block
