@@ -3,6 +3,17 @@
 
 #ifdef SUPPORT_ST7789
 #include <Arduino_GFX_Library.h>
+#include <LittleFS.h>
+#include <algorithm>
+#include <cctype>
+
+#define DRIVE_IMAGE         "$DRIVE_240X140.BIN$"
+#define DEFAULT_DISK_IMAGE  "$DISK_140X140.BIN$"
+
+#define IMAGE_REGION_X      0
+#define IMAGE_REGION_Y      65
+#define IMAGE_REGION_WIDTH  240
+#define IMAGE_REGION_HEIGHT 145
 
 using namespace std;
 
@@ -12,53 +23,85 @@ class Arduino_ST7789m : public Arduino_ST7789
 {
 public:
   Arduino_ST7789m(Arduino_DataBus *bus, int8_t rst = GFX_NOT_DEFINED) : 
-    Arduino_ST7789(bus, rst, 0, false, 240, 240) { m_bitmap_rgb565 = NULL; }
+    Arduino_ST7789(bus, rst, 0, false, 240, 240) { m_row = IMAGE_REGION_HEIGHT; }
 
   virtual ~Arduino_ST7789m()
-    { delete m_bitmap_rgb565; }
+    {}
 
   bool begin(int32_t speed, int8_t spiMode)
-    { _override_datamode = spiMode; return Arduino_TFT::begin(speed); }
-
-  void clearDisplay() 
     { 
-      if( m_bitmap_rgb565==NULL )
-        fillScreen(RGB565_BLACK);
+      _override_datamode = spiMode;
+      if( Arduino_TFT::begin(speed) )
+        { fillScreen(RGB565_BLACK); return true; }
       else
-        {
-          startWrite();
-          writeAddrWindow(0, 0, width(), height());
-          _bus->writePixels(m_bitmap_rgb565, width()*height());
-          endWrite();
-        }
+        return false;
+    }
+
+  void clearDisplay()
+    {
+      if( (IMAGE_REGION_Y)>0 )
+        fillRect(0, 0, width(), IMAGE_REGION_Y, RGB565_BLACK);
+      if( (IMAGE_REGION_Y)+(IMAGE_REGION_HEIGHT) < height() )
+        fillRect(0, IMAGE_REGION_Y+IMAGE_REGION_HEIGHT, width(), height()-(IMAGE_REGION_Y)-(IMAGE_REGION_HEIGHT), RGB565_BLACK);
+      if( (IMAGE_REGION_X)>0 )
+        fillRect(0, 0, IMAGE_REGION_X, height(), RGB565_BLACK);
+      if( (IMAGE_REGION_X)+(IMAGE_REGION_WIDTH) < width() )
+        fillRect(IMAGE_REGION_X+IMAGE_REGION_WIDTH, 0, width()-(IMAGE_REGION_X)-(IMAGE_REGION_WIDTH), height(), RGB565_BLACK);
     }
 
   void clearCurrentLine()
     { 
-      if( m_bitmap_rgb565==NULL )
-        fillRect(0, cursor_y, width(), getTextLineHeight(), RGB565_BLACK);
-      else
-        {
-          uint16_t *d = m_bitmap_rgb565 + cursor_y * width();
-          size_t   n = width()*height();
-          startWrite();
-          writeAddrWindow(0, cursor_y, width(), getTextLineHeight());
-          _bus->writePixels(m_bitmap_rgb565+cursor_y*width(), width()*getTextLineHeight());
-          endWrite();
-        }
+      fillRect(0, cursor_y, width(), getTextLineHeight(), RGB565_BLACK);
     }
 
   int getTextLineHeight()
     { return (gfxFont==NULL ? 8 : gfxFont->yAdvance) * textsize_y; }
 
-  void setBackgroundImage(uint16_t *bitmap_rgb565)
+  uint32_t startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
     {
-      if( m_bitmap_rgb565!=NULL ) free(m_bitmap_rgb565);
-      m_bitmap_rgb565 = bitmap_rgb565; 
+      uint32_t dw = IMAGE_REGION_WIDTH, dh = IMAGE_REGION_HEIGHT;
+
+      // center image
+      if( x==0xFFFF ) x = w < dw ? (dw-w)/2 : 0;
+      if( y==0xFFFF ) y = h < dh ? (dh-h)/2 : 0;
+
+      // cannot currently crop horizontally
+      if( x+w > dw ) return 0;
+
+      // if image does not fill whole region then clear first
+      if( x>0 || w<dw || y>0 || h<dh )
+        fillRect(IMAGE_REGION_X, IMAGE_REGION_Y, IMAGE_REGION_WIDTH, IMAGE_REGION_HEIGHT, RGB565_BLACK);
+
+      m_width  = w;
+      m_height = min(h, dh);
+      m_col    = x;
+      m_row    = y;
+      return 2; // bytes per pixel
     }
 
+  uint32_t addImageData(uint16_t *data, uint32_t npixels)
+    {
+      uint32_t nrows = min(npixels / m_width, m_height-m_row);
+      if( m_row == m_height )
+        return npixels; // we already have all the data we need
+      else if( nrows>0 )
+        {
+          startWrite();
+          writeAddrWindow((IMAGE_REGION_X)+m_col, (IMAGE_REGION_Y)+m_row, m_width, nrows);
+          _bus->writePixels(data, nrows*m_width);
+          m_row += nrows;
+          endWrite();
+          return nrows * m_width;
+        }
+      else
+        return 0;
+    }
+
+  void endImage()
+    {}
+
 private:
-  uint16_t *m_bitmap_rgb565;
+  uint32_t  m_row, m_col, m_width, m_height;
 };
 
 
@@ -87,21 +130,50 @@ void IECDisplay_ST7789::begin()
   m_display->setTextWrap(false);
   m_display->setTextColor(RGB565_WHITE);
   m_display->clearDisplay();
+  showImage(DRIVE_IMAGE);
   m_doClear = false;
+}
 
-#if 0
-  m_display->setCursor(0, 60);
-  m_display->setTextSize(6);
-  m_display->println("Hello");
-  m_display->println("World!");
-#endif
+
+void IECDisplay_ST7789::setCurrentImageName(std::string iname)
+{
+  IECDisplay::setCurrentImageName(iname);
+
+  bool found = false;
+
+  size_t dot = iname.rfind('.');
+  if( dot!=string::npos )
+    {
+      string basename = iname.substr(0,dot);
+      if( !showImage("$"+basename+".GIF$") )
+        {
+          Dir dir = LittleFS.openDir("/");
+          while( !found && dir.next() )
+            {
+              string name(dir.fileName().c_str());
+              if( name.front()=='$' && name.substr(name.length()-5)==".BIN$" )
+                {
+                  size_t dash = name.rfind('_');
+                  if( name.substr(1, dash-1)==basename )
+                    {
+                      showImage(name);
+                      found = true;
+                    }
+                }
+            }
+        }
+    }
+
+  if( !found ) showImage(iname.empty() ? DRIVE_IMAGE : DEFAULT_DISK_IMAGE);
 }
 
 
 void IECDisplay_ST7789::showMessage(std::string msg)
 {
-  m_display->setCursor(0, 56);
   m_display->setTextSize(3);
+  m_display->setCursor(0, 0);
+  m_display->println();
+  m_display->clearCurrentLine();
   m_display->print(msg.c_str());
   m_doClear = true;
 }
@@ -113,7 +185,6 @@ void IECDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileNam
   m_display->setCursor(0,0);
   m_display->setTextSize(3);
   m_display->println(msg.c_str());
-  m_display->println();
   m_display->print(fileName.c_str());
   m_doClear = true;
 }
@@ -183,7 +254,7 @@ void IECDisplay_ST7789::update(const char *statusMessage)
     {
       m_display->setTextSize(3);
       m_display->setTextColor(RGB565_YELLOW);
-      m_display->setCursor(0,m_display->getTextLineHeight());
+      m_display->setCursor(0,0);
       m_display->clearCurrentLine();
       m_display->println(image.c_str());
       s_image = image;
@@ -193,7 +264,7 @@ void IECDisplay_ST7789::update(const char *statusMessage)
     {
       m_display->setTextSize(3);
       m_display->setTextColor(RGB565_WHITE);
-      m_display->setCursor(0, 2*m_display->getTextLineHeight());
+      m_display->setCursor(0, m_display->getTextLineHeight());
       m_display->clearCurrentLine();
       m_display->print(m_curFileName.c_str());
       s_file = m_curFileName;
@@ -250,38 +321,54 @@ void IECDisplay_ST7789::showPrintStatus(bool printing)
 }
 
 
-void IECDisplay_ST7789::setBackgroundImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap_rgb565)
+uint32_t IECDisplay_ST7789::startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
-  uint16_t dw = m_display->width(), dh = m_display->height();
+  return m_display->startImage(x, y, w, h);
+}
 
-  if( x>0 || y>0 || w!=dw || h!=dh )
+
+uint32_t IECDisplay_ST7789::addImageData(uint8_t *data, uint32_t dataSize)
+{
+  return m_display->addImageData((uint16_t *) data, dataSize/2) * 2;
+}
+
+
+void IECDisplay_ST7789::endImage()
+{
+  m_display->endImage();
+}
+
+
+bool IECDisplay_ST7789::showImage(const string &filename)
+{
+  bool res = false;
+
+  string s(filename);
+  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c){return std::tolower(c);});
+
+  if( (s.front()=='$' && s.substr(s.length()-5)==".bin$") || s.substr(s.length()-4)==".bin" )
     {
-      // if x/y is out of range then center image
-      if( x>dw ) x = (w < dw) ? (dw-w)/2 : 0;
-      if( y>dh ) y = (h < dh) ? (dh-h)/2 : 0;
+      int w = 240, h = 240;
+      size_t i = s.rfind('_');
+      if( i!=string::npos )
+        sscanf(s.substr(i).c_str(), "_%ix%i", &w, &h);
 
-      // not a full-screen bitmap => move/clip
-      uint16_t *full_bitmap = (uint16_t *) calloc(dw*dh, sizeof(uint16_t));
-      if( full_bitmap!=NULL )
+      File f = LittleFS.open(filename.c_str(), "r");
+      if( f )
         {
-          for(uint16_t yy=0; yy<h && y+yy<dh; yy++)
-            for(uint16_t xx=0; xx<w && x+xx<dw; xx++)
-              full_bitmap[(y+yy)*dw+x+xx] = bitmap_rgb565[yy*w+xx];
-            
-          free(bitmap_rgb565);
-          bitmap_rgb565 = full_bitmap;
-        }
-      else
-        {
-          // unable to create full-screen bitmap => clear background image
-          free(bitmap_rgb565);
-          bitmap_rgb565 = NULL;
+          uint32_t n = startImage(0xFFFF, 0xFFFF, w, h);
+          if( n>0 )
+            {
+              uint8_t *buffer = new uint8_t[w*20*2];
+              while( (n=f.read(buffer, w*20*2))>0 ) addImageData(buffer, n);
+              endImage();
+              delete [] buffer;
+              res = true;
+            }
         }
     }
   
-  m_display->setBackgroundImage(bitmap_rgb565);
-  m_doClear = true;
-  update(NULL);
+  return res;
 }
 
 #endif

@@ -40,6 +40,21 @@ extern "C" int printf(const char* format, ... )
 
   return res;
 }
+
+#include <malloc.h>
+
+static uint32_t getTotalHeap()
+{
+   extern char __StackLimit, __bss_end__;
+   return &__StackLimit  - &__bss_end__;
+}
+
+static uint32_t getFreeHeap()
+{
+  struct mallinfo m = mallinfo();
+  return getTotalHeap() - m.uordblks;
+}
+
 #endif
 
 
@@ -575,37 +590,48 @@ void showBitmap()
 
   if( status==ST_OK )
     {
-      uint32_t nbytes = w*h*2;
-      uint8_t *buffer = (uint8_t *) malloc(nbytes);
-      if( buffer==NULL )
-        status = ST_DRIVE_FULL;
-      else
+      // startImage() returns number of bytes per pixel
+      uint32_t bpp    = iecDisplay->startImage(x, y, w, h);
+      uint32_t nbytes = w*h*bpp, leftover = 0;
+      uint8_t  buffer[2048];
+
+      if( bpp==0 )
+        status = ST_INVALID_DATA;
+
+      while( (nbytes>0 || leftover>0) && status==ST_OK )
         {
-          uint8_t *ptr = buffer;
-          while( nbytes>0 && status==ST_OK )
+          if( !send_status(ST_OK) )
+            status = ST_COM_ERROR;
+          else
             {
-              if( !send_status(ST_OK) )
-                status = ST_COM_ERROR;
-              else
+              uint32_t n = leftover;
+              if( n<1024 )
                 {
-                  uint32_t n = min(1024, nbytes);
-                  if( recv_data(n, ptr) )
-                    {
-                      ptr += n;
-                      nbytes -= n;
-                    }
+                  // we have enough space => receive another data block
+                  int nn = min(1024, nbytes);
+                  if( recv_data(nn, buffer + n) )
+                    { n += nn; nbytes -= nn; }
                   else
                     status = ST_COM_ERROR;
                 }
+
+              if( status == ST_OK )
+                {
+                  // addImageData returns number of bytes in buffer that were used by this call
+                  uint32_t used = iecDisplay->addImageData(buffer, n);
+                  if( used==0 )
+                    status = ST_INVALID_DATA;
+                  else if( used<n+leftover )
+                    {
+                      leftover = n - used;
+                      memmove(buffer, buffer+used, leftover);
+                    }
+                }
+              else
+                status = ST_COM_ERROR;
             }
         }
-      
-      if( status==ST_OK )
-        {
-          // NOTE: iecDisplay takes ownership of image data
-          iecDisplay->setBackgroundImage((uint16_t) x, (uint16_t) y, (uint16_t) w, (uint16_t) h, (uint16_t *) buffer);
-          iecDrive.updateDisplay();
-        }
+      iecDisplay->endImage();
     }
   
   send_status(status);
@@ -674,26 +700,6 @@ void setup()
 #endif
   iecDisplay = IECDisplay::Create(displayType);
 
-#if 0
-  File f = LittleFS.open("/DRIVE_RGB565.BIN", "r");
-  if( f )
-    {
-      int s = 240 * 240;
-      uint16_t *bitmap_rgb565 = new uint16_t[s];
-      if( f.read((uint8_t *) bitmap_rgb565, s*2) == s*2 )
-        iecDisplay->setBackgroundImage(bitmap_rgb565);
-#if DEBUG>0
-      else
-        Serial1.println("Can't load background image");
-#endif
-      f.close();
-    }
-#if DEBUG>0
-  else
-    Serial1.println("Can't open background image");
-#endif
-#endif
-
   iecDisplay->begin();
 
   iecDrive.setConfig(&iecConfig);
@@ -722,9 +728,9 @@ void loop()
 #if DEBUG>1
       Serial1.print("command receive...\r\n");
       CommandType cmd = recv_command();
-      Serial1.printf("command execute %02X...\r\n", cmd);
+      Serial1.printf("command execute %02X... (free heap=%i)\r\n", cmd, getFreeHeap());
       if( cmd != CMD_INVALID ) execCmd(cmd);
-      Serial1.printf("command done\r\n");
+      Serial1.printf("command done (free heap=%i)\r\n", getFreeHeap());
 #else
       CommandType cmd = recv_command();
       if( cmd != CMD_INVALID ) execCmd(cmd);

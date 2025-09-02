@@ -18,6 +18,8 @@ class IECDisplay_ST7789 : public IECDisplay
 
   virtual void begin();
 
+  virtual void setCurrentImageName(std::string iname);
+
   virtual void showMessage(std::string msg);
   virtual void showTransmitMessage(std::string msg, std::string fileName);
 
@@ -26,7 +28,10 @@ class IECDisplay_ST7789 : public IECDisplay
   virtual void updateProgress(int nbytes);
   virtual void update(const char *statusMessage);
 
-  virtual void setBackgroundImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap_rgb565);
+  virtual uint32_t startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h);
+  virtual uint32_t addImageData(uint8_t *data, uint32_t dataSize);
+  virtual void     endImage();
+  virtual bool     showImage(const std::string &filename);
 
  private:
   Arduino_ST7789m *m_display;  

@@ -11,8 +11,8 @@ class IECDisplay
   IECDisplay();
   virtual ~IECDisplay();
 
-  void setCurrentImageName(std::string iname);
-  void setCurrentFileName(std::string fname);
+  virtual void setCurrentImageName(std::string iname);
+  virtual void setCurrentFileName(std::string fname);
 
   virtual void begin();
 
@@ -24,7 +24,10 @@ class IECDisplay
   virtual void updateProgress(int nbytes);
   virtual void update(const char *statusMessage);
 
-  virtual void setBackgroundImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t *bitmap_rgb565) {}
+  virtual uint32_t startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h) { return 1; }
+  virtual uint32_t addImageData(uint8_t *data, uint32_t dataSize) { return dataSize; }
+  virtual void     endImage() {}
+  virtual bool     showImage(const std::string &filename) { return false; }
 
   static IECDisplay *Create(std::string displayType);
 

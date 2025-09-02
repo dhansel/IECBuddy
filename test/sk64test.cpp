@@ -849,6 +849,10 @@ void execCommand(string cmd)
       if( n<3 ) h = 240;
       if( n<4 ) x = -1;
       if( n<5 ) y = -1;
+
+      char *s = strrchr(buffer, '_');
+      if( s!=NULL ) sscanf(s, "_%ix%i", &w, &h);
+
       status = sendBitmap(buffer, x, y, w, h);
     }
   else
@@ -879,7 +883,7 @@ void showCommands()
   printf("  setconfigval key value : set the value of 'key' to 'value' in the $CONFIG$ file\n");
   printf("  getconfigval key       : print the current value of 'key' in the $CONFIG$ file\n");
   printf("  clearconfig            : clear ALL settings in the $CONFIG$ file\n");
-  printf("  bitmap fname [w] [h] [x] [y] : send RGB565 bitmap file fname, if w/h missing then assumed 240, if x/y missing then center\n");
+  printf("  bitmap fname [w] [h] [x] [y] : send RGB565 bitmap file 'fname', if w/h missing then assumed 240, if x/y missing then center\n");
 }
 
 
