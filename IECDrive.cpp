@@ -99,7 +99,8 @@ void IECDrive::begin()
   int d = std::atoi(m_config->getValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
 
-  updateDisplay();
+  m_display->redraw();
+  updateDisplayStatus();
 
   // call this after m_display->begin() since this sets all IEC and parallel cable
   // pins to GPIO mode, ensuring that any pins that were previously set as I2C/SPI
@@ -138,7 +139,6 @@ void IECDrive::task()
     {
       changeDisk = false;
 
-      updateDisplay();
       string current;
       if( m_drive->isOk() ) 
         {
@@ -210,7 +210,6 @@ void IECDrive::task()
 
       const char *iname = m_drive->getDiskImageFilename();
       m_display->setCurrentImageName(iname ? iname : "");
-      updateDisplay();
     }
 
   // handle IEC serial bus communication, the open/read/write/close/execute 
@@ -587,7 +586,6 @@ bool IECDrive::open(uint8_t channel, const char *name)
       m_display->setCurrentFileName(sname);
 
       m_curFileChannel = channel;
-      updateDisplay();
       if( m_drive->isOk() )
         m_display->startProgress(m_drive->getFileNumBlocks(sname.c_str()) * 254);
       else if( m_file )
@@ -595,8 +593,8 @@ bool IECDrive::open(uint8_t channel, const char *name)
       else
         m_display->startProgress(-1);
     }
-  else
-    updateDisplay();
+
+  updateDisplayStatus();
 
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
@@ -667,9 +665,10 @@ void IECDrive::close(uint8_t channel)
 
   if( m_curFileChannel==channel )
     {
+      m_display->endProgress();
       m_display->setCurrentFileName("");
+      updateDisplayStatus();
       m_curFileChannel = -1;
-      updateDisplay();
     }
 }
 
@@ -812,7 +811,6 @@ void IECDrive::execute(const char *command, uint8_t len)
           // CD "up"
           m_drive->closeDiskImage();
           m_display->setCurrentImageName("");
-          updateDisplay();
         }
 
       m_errorCode = E_OK;
@@ -849,8 +847,6 @@ void IECDrive::execute(const char *command, uint8_t len)
           else
             m_errorCode = E_NOTFOUND;
         }
-
-      updateDisplay();
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
     m_errorCode = E_OK;
@@ -871,7 +867,7 @@ void IECDrive::execute(const char *command, uint8_t len)
   else
     m_errorCode = E_INVCMD;
 
-  if( m_errorCode!=E_OK ) updateDisplay();
+  if( m_errorCode!=E_OK ) updateDisplayStatus();
   setLEDState(LED_OFF);
 }
 
@@ -929,7 +925,7 @@ void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
   if( m_errorCode!=E_OK )
     {
       m_errorCode = E_OK;
-      updateDisplay();
+      updateDisplayStatus();
     }
 }
 
@@ -940,7 +936,6 @@ void IECDrive::unmountDiskImage()
     m_drive->closeDiskImage();
 
   m_display->setCurrentImageName("");
-  updateDisplay();
 }
 
 
@@ -951,7 +946,6 @@ bool IECDrive::mountDiskImage(const char *name)
 
   bool res = m_drive->openDiskImage(name);
   m_display->setCurrentImageName(res ? name : "");
-  updateDisplay();
 
   return res;
 }
@@ -985,11 +979,12 @@ void IECDrive::reset()
       setLEDState(LED_OFF);
     }
 
-  updateDisplay();
+  updateDisplayStatus();
+  m_display->redraw();
 }
 
 
-void IECDrive::updateDisplay()
+void IECDrive::updateDisplayStatus()
 {
   char buf[22];
   if( m_errorCode==E_VDRIVE )
@@ -1002,7 +997,7 @@ void IECDrive::updateDisplay()
     }
 
   buf[21] = 0;
-  m_display->update(buf);
+  m_display->setStatusMessage(buf);
 }
 
 

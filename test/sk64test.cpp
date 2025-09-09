@@ -635,7 +635,7 @@ StatusType deleteFile(const string &fname)
 }
 
 
-StatusType sendBitmap(const string &fname, uint32_t x, uint32_t y, uint32_t w, uint32_t h)
+StatusType sendBitmap(const string &fname, int32_t x, int32_t y, uint32_t w, uint32_t h)
 {
   uint32_t nbytes = w*h*2;
   uint8_t *buffer = NULL;
@@ -659,14 +659,73 @@ StatusType sendBitmap(const string &fname, uint32_t x, uint32_t y, uint32_t w, u
 
   // send position/size
   if( status==ST_OK )
-    if( !send_uint(x) || !send_uint(y) || !send_uint(w) || !send_uint(h) )
+    if( !send_sint(x) || !send_sint(y) || !send_uint(w) || !send_uint(h) )
       status = ST_COM_ERROR;
 
   // send image data
   if( status==ST_OK )
     {
       uint8_t *ptr = buffer;
-      while( nbytes>0 && (status=recv_status())==ST_OK )
+      while( nbytes>0 && status==ST_OK && (status=recv_status())==ST_OK )
+        {
+          uint32_t n = min(1024u, nbytes);
+          if( send_data(n, ptr) )
+            {
+              ptr += n;
+              nbytes -= n;
+            }
+          else
+            status = ST_COM_ERROR;
+        }
+    }
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+
+  if( buffer!=NULL )
+    free(buffer);
+
+  return status;
+}
+
+
+StatusType sendGIF(const string &fname, int32_t x, int32_t y)
+{
+  uint32_t nbytes;
+  uint8_t *buffer = NULL;
+  StatusType status = ST_OK;
+
+  FILE *f = fopen(fname.c_str(), "rb");
+  if( f )
+    {
+      fseek(f, 0, SEEK_END);
+      nbytes = ftell(f);
+      fseek(f, 0, SEEK_SET);
+
+      buffer = (uint8_t *) malloc(nbytes);
+      if( fread(buffer, 1, nbytes, f)!=nbytes )
+        status = ST_INVALID_DATA;
+      fclose(f);
+    }
+  else
+    status = ST_FILE_NOT_FOUND;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_SHOW_GIF) )
+      status = ST_COM_ERROR;
+
+  // send position
+  if( status==ST_OK )
+    if( !send_sint(x) || !send_sint(y) || !send_uint(nbytes) )
+      status = ST_COM_ERROR;
+
+  // send image data
+  if( status==ST_OK )
+    {
+      uint8_t *ptr = buffer;
+      while( nbytes>0 && status==ST_OK && (status=recv_status())==ST_OK )
         {
           uint32_t n = min(1024u, nbytes);
           if( send_data(n, ptr) )
@@ -847,13 +906,22 @@ void execCommand(string cmd)
       int n = sscanf(cmd.substr(7).c_str(), "%s %i %i %i %i", buffer, &w, &h, &x, &y);
       if( n<2 ) w = 240;
       if( n<3 ) h = 240;
-      if( n<4 ) x = -1;
-      if( n<5 ) y = -1;
+      if( n<4 ) x = 0x7FFF;
+      if( n<5 ) y = 0x7FFF;
 
       char *s = strrchr(buffer, '_');
       if( s!=NULL ) sscanf(s, "_%ix%i", &w, &h);
 
       status = sendBitmap(buffer, x, y, w, h);
+    }
+  else if( cmd.substr(0, 4)=="gif " )
+    {
+      int w, h, x, y;
+      char buffer[1024];
+      int n = sscanf(cmd.substr(4).c_str(), "%s %i %i", buffer, &x, &y);
+      if( n<2 ) x = 0x7FFF;
+      if( n<3 ) y = 0x7FFF;
+      status = sendGIF(buffer, x, y);
     }
   else
     {
@@ -884,6 +952,7 @@ void showCommands()
   printf("  getconfigval key       : print the current value of 'key' in the $CONFIG$ file\n");
   printf("  clearconfig            : clear ALL settings in the $CONFIG$ file\n");
   printf("  bitmap fname [w] [h] [x] [y] : send RGB565 bitmap file 'fname', if w/h missing then assumed 240, if x/y missing then center\n");
+  printf("  gif fname [x] [y] : send GIF bitmap file 'fname', if x/y missing then center\n");
 }
 
 

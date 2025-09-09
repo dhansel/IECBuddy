@@ -30,7 +30,7 @@ class IECDrive : public IECFileDevice
 
   void setDisplay(IECDisplay *d) { m_display = d; }
   void setConfig(IECConfig *c)   { m_config = c; }
-  void updateDisplay();
+  void updateDisplayStatus();
 
  protected:
   virtual void begin();

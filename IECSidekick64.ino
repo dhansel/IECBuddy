@@ -154,7 +154,6 @@ void sendDriveStatus()
 
   char buffer[255];
   iecDrive.getStatus(buffer, 255);
-  iecDrive.updateDisplay();
   send_string(buffer);
 }
 
@@ -336,7 +335,7 @@ void sendFile()
           file.close();
           s_modTime = 0;
 
-          iecDrive.updateDisplay();
+          iecDisplay->redraw();
         }
       else
         {
@@ -470,7 +469,7 @@ void receiveFile()
               if( status!=ST_OK )
                 LittleFS.remove(fileName.c_str());
 
-              iecDrive.updateDisplay();
+              iecDisplay->redraw();
             }
           else
             send_status(ST_WRITE_ERROR);
@@ -584,54 +583,78 @@ void showBitmap()
 {
   StatusType status = ST_OK;
 
-  uint32_t x, y, w, h;
-  if( !recv_uint(x) || !recv_uint(y) || !recv_uint(w) || !recv_uint(h) )
+  int32_t  x, y;
+  uint32_t w, h;
+  if( !recv_sint(x) || !recv_sint(y) || !recv_uint(w) || !recv_uint(h) )
     status = ST_COM_ERROR;
 
   if( status==ST_OK )
     {
       // startImage() returns number of bytes per pixel
       uint32_t bpp    = iecDisplay->startImage(x, y, w, h);
-      uint32_t nbytes = w*h*bpp, leftover = 0;
-      uint8_t  buffer[2048];
+      uint32_t nbytes = w*h*bpp;
+      uint8_t  buffer[1024];
 
       if( bpp==0 )
-        status = ST_INVALID_DATA;
+        status = ST_DRIVE_FULL;
 
-      while( (nbytes>0 || leftover>0) && status==ST_OK )
+      while( nbytes>0 && status==ST_OK )
         {
-          if( !send_status(ST_OK) )
-            status = ST_COM_ERROR;
-          else
+          uint32_t n = min(1024, nbytes);
+          if( send_status(ST_OK) )
             {
-              uint32_t n = leftover;
-              if( n<1024 )
-                {
-                  // we have enough space => receive another data block
-                  int nn = min(1024, nbytes);
-                  if( recv_data(nn, buffer + n) )
-                    { n += nn; nbytes -= nn; }
-                  else
-                    status = ST_COM_ERROR;
-                }
-
-              if( status == ST_OK )
-                {
-                  // addImageData returns number of bytes in buffer that were used by this call
-                  uint32_t used = iecDisplay->addImageData(buffer, n);
-                  if( used==0 )
-                    status = ST_INVALID_DATA;
-                  else if( used<n+leftover )
-                    {
-                      leftover = n - used;
-                      memmove(buffer, buffer+used, leftover);
-                    }
-                }
+              if( recv_data(n, buffer) )
+                iecDisplay->addImageData(buffer, n);
               else
                 status = ST_COM_ERROR;
             }
+          else
+            status = ST_COM_ERROR;
+
+          nbytes -= n;
         }
+
       iecDisplay->endImage();
+      iecDisplay->redraw();
+    }
+  
+  send_status(status);
+}
+
+
+void showGIF()
+{
+  StatusType status = ST_OK;
+
+  int32_t  x, y;
+  uint32_t size;
+  if( !recv_sint(x) || !recv_sint(y) || !recv_uint(size) )
+    status = ST_COM_ERROR;
+  
+  if( status==ST_OK )
+    {
+      uint8_t *buffer = (uint8_t *) malloc(size);
+      if( buffer )
+        {
+          uint32_t nbytes = size;
+          uint8_t *ptr = buffer;
+          while( nbytes>0 && status==ST_OK )
+            {
+              uint32_t n = min(1024, nbytes);
+              if( !send_status(ST_OK) || !recv_data(n, ptr) )
+                status = ST_COM_ERROR;
+              
+              nbytes -= n;
+              ptr    += n;
+            }
+          
+          if( status==ST_OK )
+            iecDisplay->setBackgroundImageGIF(buffer, size, x, y);
+
+          free(buffer);
+        }
+      else
+        status = ST_DRIVE_FULL;
     }
   
   send_status(status);
@@ -655,6 +678,7 @@ void execCmd(CommandType cmd)
     case CMD_CLEAR_CONFIG:   clearConfig(); break;
     case CMD_DELETE_FILE:    deleteFile(); break;
     case CMD_SHOW_BITMAP:    showBitmap(); break;
+    case CMD_SHOW_GIF:       showGIF(); break;
 
     default: 
       {

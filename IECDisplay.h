@@ -11,10 +11,11 @@ class IECDisplay
   IECDisplay();
   virtual ~IECDisplay();
 
+  virtual void begin();
+
   virtual void setCurrentImageName(std::string iname);
   virtual void setCurrentFileName(std::string fname);
-
-  virtual void begin();
+  virtual void setStatusMessage(std::string msg);
 
   virtual void showMessage(std::string msg);
   virtual void showTransmitMessage(std::string msg, std::string fileName);
@@ -22,12 +23,14 @@ class IECDisplay
 
   virtual void startProgress(int nbytestotal);
   virtual void updateProgress(int nbytes);
-  virtual void update(const char *statusMessage);
+  virtual void endProgress();
+  virtual void redraw();
 
   virtual uint32_t startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h) { return 1; }
-  virtual uint32_t addImageData(uint8_t *data, uint32_t dataSize) { return dataSize; }
+  virtual void     addImageData(uint8_t *data, uint32_t dataSize) {}
   virtual void     endImage() {}
-  virtual bool     showImage(const std::string &filename) { return false; }
+  virtual bool     setBackgroundImage(const std::string &filename, bool doUpdate = true) { return false; }
+  virtual bool     setBackgroundImageGIF(uint8_t *data, uint32_t size, int32_t x, int32_t y, bool doUpdate = true)  { return false; }
 
   static IECDisplay *Create(std::string displayType);
 
@@ -36,6 +39,7 @@ class IECDisplay
 
   std::string m_curImageName;
   std::string m_curFileName;
+  std::string m_statusMessage;
 
   int         m_curFileSize;
   int         m_curFileBytesRead;

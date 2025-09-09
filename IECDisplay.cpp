@@ -10,7 +10,6 @@ IECDisplay::IECDisplay()
 {
   m_curFileSize = 0;
   m_curFileBytesRead = 0;
-  m_curFileName = string();
 }
 
 
@@ -36,6 +35,12 @@ void IECDisplay::setCurrentFileName(string fname)
 }
 
 
+void IECDisplay::setStatusMessage(string msg)
+{
+  m_statusMessage = msg;
+}
+
+
 void IECDisplay::startProgress(int nbytestotal)
 {
   m_progressWidth = 0;
@@ -45,6 +50,11 @@ void IECDisplay::startProgress(int nbytestotal)
 
 
 void IECDisplay::updateProgress(int nbytes) 
+{
+}
+
+
+void IECDisplay::endProgress() 
 {
 }
 
@@ -78,7 +88,7 @@ void IECDisplay::showPrintStatus(bool printing)
 }
 
 
-void IECDisplay::update(const char *statusMessage) 
+void IECDisplay::redraw()
 {
 }
 

@@ -15,6 +15,7 @@
 #define CMD_CLEAR_CONFIG    11
 #define CMD_DELETE_FILE     12
 #define CMD_SHOW_BITMAP     13
+#define CMD_SHOW_GIF        14
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0
@@ -73,33 +74,6 @@ const char *get_status_msg(StatusType status)
     }
 }
 
-bool send_sint(int32_t i)
-{
-  uint8_t data[4];
-  data[0] = i & 255; i = i / 256;
-  data[1] = i & 255; i = i / 256;
-  data[2] = i & 255; i = i / 256;
-  data[3] = i;
-  return send_data(4, data);
-}
-
-
-bool recv_sint(int32_t &i)
-{
-  uint8_t data[4];
-  if( !recv_data(4, data) )
-    return false;
-  else
-    {
-      i = data[3]; i = i * 256;
-      i = data[2]; i = i * 256;
-      i = data[1]; i = i * 256;
-      i = data[0];
-      return true;
-    }
-}
-
-
 bool send_uint(uint32_t i)
 {
   uint8_t data[4];
@@ -125,6 +99,23 @@ bool recv_uint(uint32_t &i)
       return true;
     }
 }
+
+
+bool send_sint(int32_t i)
+{
+  return send_uint((uint32_t) i);
+}
+
+
+bool recv_sint(int32_t &i)
+{
+  uint32_t u;
+  if( recv_uint(u) ) 
+    { i = u; return true; }
+  else
+    return false;
+}
+
 
 #define CMD_MAGIC 0xFEEDABCD
 
