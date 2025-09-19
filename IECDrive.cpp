@@ -34,6 +34,7 @@ using namespace std;
 #ifdef PIN_LED_IS_NEOPIXEL_RGB
 #include <Adafruit_NeoPixel.h>
 static Adafruit_NeoPixel s_led(1, 16, NEO_RGB + NEO_KHZ800);
+#define BRIGHTNESS 25
 #endif
 
 #define LED_OFF   0
@@ -1009,10 +1010,10 @@ void IECDrive::setLEDState(int color)
       switch( color )
         {
         case LED_OFF:   s_led.clear(); break;
-        case LED_RED:   s_led.setPixelColor(0,255,0,0); break;
-        case LED_GREEN: s_led.setPixelColor(0,0,255,0); break;
-        case LED_BLUE:  s_led.setPixelColor(0,0,0,255); break;
-        default:        s_led.setPixelColor(0,255,255,255); break;
+        case LED_RED:   s_led.setPixelColor(0,BRIGHTNESS,0,0); break;
+        case LED_GREEN: s_led.setPixelColor(0,0,BRIGHTNESS,0); break;
+        case LED_BLUE:  s_led.setPixelColor(0,0,0,BRIGHTNESS); break;
+        default:        s_led.setPixelColor(0,BRIGHTNESS,BRIGHTNESS,BRIGHTNESS); break;
         }
       s_led.show();
 #else
