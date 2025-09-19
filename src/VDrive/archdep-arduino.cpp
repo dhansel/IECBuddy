@@ -49,11 +49,152 @@ static uint32_t getAvailableHeap()
 
 
 #define MAXFILES 3
-static File     s_lfsFiles[MAXFILES];
-static uint8_t  s_lfsFilesFlags[MAXFILES];
-static uint8_t *s_imageData = NULL;
-static uint32_t s_imageDataSize = 0, s_imageDataPos = 0;
-static uint32_t s_imageDataMinWritePos = 0, s_imageDataMaxWritePos = 0;
+#define MEM_CHUNK_SIZE 4096
+
+static File      s_lfsFiles[MAXFILES];
+static uint8_t   s_lfsFilesFlags[MAXFILES];
+static uint8_t **s_imageData = NULL;
+static uint32_t  s_imageDataChunks = 0, s_imageDataSize = 0, s_imageDataPos = 0;
+static uint32_t  s_imageDataMinWritePos = 0, s_imageDataMaxWritePos = 0;
+
+
+static void image_free()
+{
+  if( s_imageData!=NULL )
+    {
+      DBG(("heap_avail: %u\n", getAvailableHeap()));
+      DBG(("image_free: freeing %u chunks of %u...\n", s_imageDataChunks, MEM_CHUNK_SIZE));
+      for(uint32_t i=0; i<s_imageDataChunks; i++) free(s_imageData[i]);
+      free(s_imageData);
+      s_imageData = NULL;
+      s_imageDataChunks = 0;
+      DBG(("heap_avail: %u\n", getAvailableHeap()));
+    }
+}
+
+static bool image_alloc(size_t numBytes)
+{
+  image_free();
+
+  s_imageDataChunks = numBytes / (MEM_CHUNK_SIZE);
+  if( numBytes / (MEM_CHUNK_SIZE) > 0 ) s_imageDataChunks++;
+
+  DBG(("\nheap_avail: %u\n", getAvailableHeap()));
+  DBG(("image_alloc: allocating %u bytes in %u chunks of %u...", numBytes, s_imageDataChunks, MEM_CHUNK_SIZE));
+
+  s_imageData = (uint8_t **) malloc(sizeof(uint8_t *) * s_imageDataChunks );
+  if( s_imageData!=NULL )
+    {
+      uint32_t i;
+      for(i=0; i<s_imageDataChunks; i++)
+        if( (s_imageData[i]=(uint8_t *) malloc(MEM_CHUNK_SIZE))==NULL )
+          break;
+
+      if( i<s_imageDataChunks )
+        {
+          for(uint32_t j=0; j<i; j++) free(s_imageData[j]);
+          free(s_imageData);
+          s_imageData = NULL;
+          s_imageDataChunks = 0;
+        }
+    }
+
+  if( s_imageData!=NULL ) { DBG(("ok\n", 0)); } else { DBG(("FAIL!\n", 0)); }
+  DBG(("heap_avail: %u\n", getAvailableHeap()));
+
+  return s_imageData!=NULL;
+}
+
+
+static bool image_read_from_file(File f, size_t pos, size_t size)
+{
+  if( f && f.seek(pos, SeekSet) )
+    {
+      uint32_t chunk  = pos / (MEM_CHUNK_SIZE);
+      uint32_t offset = pos % (MEM_CHUNK_SIZE);
+      
+      while( size>0 )
+        {
+          uint32_t n = min(size, (MEM_CHUNK_SIZE)-offset);
+          if( !f.read(s_imageData[chunk]+offset, n) ) break;
+          size -= n;
+          offset = 0;
+          chunk++;
+        }
+    }
+
+  return size==0;
+}
+
+
+static bool image_write_to_file(File f, size_t pos, size_t size)
+{
+  if( f && f.seek(pos, SeekSet) )
+    {
+      uint32_t chunk  = pos / (MEM_CHUNK_SIZE);
+      uint32_t offset = pos % (MEM_CHUNK_SIZE);
+
+      while( size>0 )
+        {
+          uint32_t n = min(size, (MEM_CHUNK_SIZE)-offset);
+          if( !f.write(s_imageData[chunk]+offset, n) ) break;
+          size -= n;
+          offset = 0;
+          chunk++;
+        }
+    }
+
+  return size==0;
+}
+
+
+static uint8_t image_read_byte(size_t pos)
+{
+  uint32_t chunk  = pos / (MEM_CHUNK_SIZE);
+  uint32_t offset = pos % (MEM_CHUNK_SIZE);
+  return *(s_imageData[chunk]+offset);
+}
+
+
+static void image_read_data(uint8_t *buf, size_t pos, size_t size)
+{
+  if( s_imageData!=NULL )
+    {
+      uint32_t chunk  = pos / (MEM_CHUNK_SIZE);
+      uint32_t offset = pos % (MEM_CHUNK_SIZE);
+
+      while( size>0 )
+        {
+          uint32_t n = min(size, (MEM_CHUNK_SIZE)-offset);
+          memcpy(buf, s_imageData[chunk]+offset, n);
+          buf  += n;
+          size -= n;
+          offset = 0;
+          chunk++;
+        }
+    }
+}
+
+
+static void image_write_data(const uint8_t *buf, size_t pos, size_t size)
+{
+  if( s_imageData!=NULL )
+    {
+      uint32_t chunk  = pos / (MEM_CHUNK_SIZE);
+      uint32_t offset = pos % (MEM_CHUNK_SIZE);
+
+      while( size>0 )
+        {
+          uint32_t n = min(size, (MEM_CHUNK_SIZE)-offset);
+          memcpy(s_imageData[chunk]+offset, buf, n);
+          buf  += n;
+          size -= n;
+          offset = 0;
+          chunk++;
+        }
+    }
+}
+
 
 void archdep_flush_memcache(ADFILE *f)
 {
@@ -65,7 +206,7 @@ void archdep_flush_memcache(ADFILE *f)
   if( (s_imageData!=NULL) && (s_imageDataMinWritePos<s_imageDataMaxWritePos) )
     {
       uint32_t n = s_imageDataMaxWritePos-s_imageDataMinWritePos;
-      DBG(("archdep_flush: writing memory data (offset %u, size %u) back to file '%s'...", 
+      DBG(("archdep_flush_memcache: writing memory data (offset %u, size %u) back to file '%s'...", 
            s_imageDataMinWritePos, n, s_lfsFiles[fidx].fullName()));
       char *name = strdup(s_lfsFiles[fidx].fullName());
 
@@ -78,15 +219,14 @@ void archdep_flush_memcache(ADFILE *f)
           // we have enough space for LittleFS to write a new copy and then delete the old
           // so we can proceed with only writing the modified part
           s_lfsFiles[fidx] = LittleFS.open(name, "r+");
-          s_lfsFiles[fidx].seek(s_imageDataMinWritePos, SeekSet);
-          ok = s_lfsFiles[fidx] && s_lfsFiles[fidx].write(s_imageData+s_imageDataMinWritePos, n);
+          ok = image_write_to_file(s_lfsFiles[fidx], s_imageDataMinWritePos, n);
         }
       else
         {
           // not enough space on file system to do a partial rewrite (LittleFS first writes
           // the new file and then deletes the old) => rewrite the whole file
           s_lfsFiles[fidx] = LittleFS.open(name, "w");
-          ok = s_lfsFiles[fidx].write(s_imageData, s_imageDataSize);
+          ok = image_write_to_file(s_lfsFiles[fidx], 0, s_imageDataSize);
         }
 
       if( ok )
@@ -106,9 +246,9 @@ void archdep_flush_memcache(ADFILE *f)
     }
   else if( (s_lfsFilesFlags[fidx] & (F_CANTBUFFER|F_CANTWRITE))==F_CANTBUFFER )
     {
-      DBG(("archdep_flush: flushing file '%s'...", s_lfsFiles[fidx].fullName()));
+      DBG(("archdep_flush_memcache: flushing file '%s'...", s_lfsFiles[fidx].fullName()));
       s_lfsFiles[fidx].flush();
-      DBG(("DONE\n", 0));
+      DBG(("\nDONE\n", 0));
     }
 }
 
@@ -146,8 +286,7 @@ static void closeFile(ADFILE *f)
   if( s_imageData!=NULL )
     {
       archdep_flush_memcache(f);
-      free(s_imageData);
-      s_imageData = NULL;
+      image_free();
     }
   
   s_lfsFiles[fidx].close();
@@ -194,12 +333,10 @@ File getFile(ADFILE *f, bool write = false)
       DBG(("\nHeap avail : %u", getAvailableHeap()));
 #endif
       
-      s_imageData = (uint8_t *) malloc(size);
-      if( s_imageData!=NULL )
+      if( image_alloc(size) )
         {
-          DBG(("\ngetFile: loading file '%s' of size %u into memory...", file.fullName(), size));
-          file.seek(0, SeekSet);
-          if( file.read(s_imageData, size)==size )
+          DBG(("getFile: loading file '%s' of size %u into memory...", file.fullName(), size));
+          if( image_read_from_file(file, 0, size) )
             {
               DBG(("DONE", 0));
               s_imageDataPos = pos;
@@ -212,14 +349,13 @@ File getFile(ADFILE *f, bool write = false)
             {
               DBG(("FAILED", 0));
               file.seek(pos, SeekSet);
-              free(s_imageData);
-              s_imageData=NULL;
+              image_free();
               s_lfsFilesFlags[fidx] |= F_CANTBUFFER;
             }
         }
       else
         {
-          DBG(("\ngetFile: file '%s' of size %u can't fit into memory (heap available=%u)", file.fullName(), size, getAvailableHeap()));
+          DBG(("getFile: file '%s' of size %u can't fit into memory (heap available=%u)", file.fullName(), size, getAvailableHeap()));
           s_lfsFilesFlags[fidx] |= F_CANTBUFFER;
           file.seek(pos, SeekSet);
         }
@@ -244,9 +380,17 @@ File getFile(ADFILE *f, bool write = false)
           // open again for writing now
           file.close();
           file = LittleFS.open(name, "r+");
-          if( !file ) DBG(("  ERROR  ", 0));
+          if( file ) 
+            s_lfsFilesFlags[fidx] |= F_WRITEMODE;
+          else
+            {
+              DBG(("Unable to re-open file '%s' for writing", name));
+              s_lfsFilesFlags[fidx] |= F_CANTWRITE;
+              file = LittleFS.open(name, "r");
+            }
+
           file.seek(pos, SeekSet);
-          s_lfsFilesFlags[fidx] |= F_WRITEMODE;
+          s_lfsFiles[fidx] = file;
         }
       else
         {
@@ -430,7 +574,7 @@ size_t archdep_fread(void* buffer, size_t size, size_t count, ADFILE *f)
   if( isFileInBuffer(f) )
     {
       n = min(size*count, s_imageDataSize-s_imageDataPos);
-      memcpy(buffer, s_imageData+s_imageDataPos, n);
+      image_read_data((uint8_t *) buffer, s_imageDataPos, n);
       s_imageDataPos += n;
     }
   else
@@ -445,7 +589,7 @@ size_t archdep_fread(void* buffer, size_t size, size_t count, ADFILE *f)
 int archdep_fgetc(ADFILE *stream)
 {
   if( isFileInBuffer(stream) )
-    return s_imageDataPos<s_imageDataSize ? s_imageData[s_imageDataPos++] : -1;
+    return s_imageDataPos<s_imageDataSize ? image_read_byte(s_imageDataPos++) : -1;
   else
     return getFile(stream).read();
 }
@@ -460,7 +604,7 @@ size_t archdep_fwrite(const void* buffer, size_t size, size_t count, ADFILE *str
   if( isFileInBuffer(stream) )
     {
       n = min(size*count, s_imageDataSize-s_imageDataPos);
-      memcpy(s_imageData+s_imageDataPos, buffer, n);
+      image_write_data((const uint8_t *) buffer, s_imageDataPos, n);
       s_imageDataMinWritePos = min(s_imageDataMinWritePos, s_imageDataPos);
       s_imageDataPos += n;
       s_imageDataMaxWritePos = max(s_imageDataMaxWritePos, s_imageDataPos);
