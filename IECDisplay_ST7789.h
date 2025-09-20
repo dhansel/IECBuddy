@@ -16,7 +16,7 @@ class IECDisplay_ST7789 : public IECDisplay
   IECDisplay_ST7789();
   virtual ~IECDisplay_ST7789();
 
-  virtual void begin();
+  virtual void begin(uint32_t rotation);
 
   virtual void setCurrentImageName(std::string iname);
   virtual void setCurrentFileName(std::string fname);

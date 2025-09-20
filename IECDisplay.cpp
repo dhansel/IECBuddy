@@ -18,7 +18,7 @@ IECDisplay::~IECDisplay()
 }
 
 
-void IECDisplay::begin()
+void IECDisplay::begin(uint32_t rotation)
 {
 }
 

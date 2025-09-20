@@ -24,14 +24,21 @@ using namespace std;
 //    Pro: fast, does not occupy any RAM
 //    Con: text that runs over image will not be removed until a new background 
 //         image is shown => need to display text outside of IMAGE_REGION
-#define IMGDATA_FILEBUF     "$BGIMAGE.BIN$"
+//#define IMGDATA_FILEBUF     "$BGIMAGE.BIN$"
 //#define IMGDATA_MEMBUF      4096
 
 // Define region in which (background) image will be shown
+#if defined(IMGDATA_FILEBUF) || defined(IMGDATA_MEMBUF)
 #define IMAGE_REGION_X      0
 #define IMAGE_REGION_Y      0
 #define IMAGE_REGION_WIDTH  240
 #define IMAGE_REGION_HEIGHT 240
+#else
+#define IMAGE_REGION_X      0
+#define IMAGE_REGION_Y      51
+#define IMAGE_REGION_WIDTH  240
+#define IMAGE_REGION_HEIGHT 160
+#endif
 
 // this is the background image shown when NO disk image (.Dxx/.Gxx) is mounted
 #define DEFAULT_IMAGE       "DEFAULT.GIF"
@@ -91,7 +98,7 @@ private:
 
 
 Arduino_ST7789m::Arduino_ST7789m(Arduino_DataBus *bus, int8_t rst) : 
-  Arduino_ST7789(bus, rst, 0, false, 240, 240) 
+  Arduino_ST7789(bus, rst, 0, false, 240, 240, 0, 0, 0, 80)
 { 
   m_imgY = 0; 
   m_imgH = 0; 
@@ -497,11 +504,12 @@ IECDisplay_ST7789::~IECDisplay_ST7789()
 }
 
 
-void IECDisplay_ST7789::begin()
+void IECDisplay_ST7789::begin(uint32_t rotation)
 {
   m_display->begin(GFX_NOT_DEFINED /* SPI speed */, SPI_MODE3);
 
   m_display->invertDisplay(true);
+  m_display->setRotation((rotation/90)%4);
   m_display->setTextWrap(false);
   m_display->setTextColor(RGB565_WHITE);
   setBackgroundImage(DEFAULT_IMAGE, false);
@@ -514,8 +522,8 @@ void IECDisplay_ST7789::showMessage(std::string msg)
   // display "Searching..." message while finding disk image if button is pressed
   // this can rewrite any part of the display, "redraw" will automatically be called
   // after the operation finishes
-  m_display->setCursor(0, 56);
   m_display->setTextSize(3);
+  m_display->setCursor(0, 1*m_display->getTextLineHeight());
   m_display->print(msg.c_str());
 }
 
@@ -529,7 +537,6 @@ void IECDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileNam
   m_display->setCursor(0,0);
   m_display->setTextSize(3);
   m_display->println(msg.c_str());
-  m_display->println();
   m_display->print(fileName.c_str());
 }
 
@@ -557,7 +564,7 @@ void IECDisplay_ST7789::dispImageName(const string &s, bool clear)
   // display name of currently mounted disk image
   m_display->setTextSize(3);
   m_display->setTextColor(RGB565_YELLOW);
-  m_display->setCursor(0,m_display->getTextLineHeight());
+  m_display->setCursor(0, 0*m_display->getTextLineHeight());
   if( clear ) m_display->clearCurrentLine();
   m_display->println(s.c_str());
 }
@@ -568,7 +575,7 @@ void IECDisplay_ST7789::dispFileName(const string &s, bool clear)
   // display name of file currently being loaded or saved
   m_display->setTextSize(3);
   m_display->setTextColor(RGB565_WHITE);
-  m_display->setCursor(0, 2*m_display->getTextLineHeight());
+  m_display->setCursor(0, 1*m_display->getTextLineHeight());
   if( clear ) m_display->clearCurrentLine();
   m_display->print(s.c_str());
 }

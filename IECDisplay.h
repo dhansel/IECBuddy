@@ -11,7 +11,7 @@ class IECDisplay
   IECDisplay();
   virtual ~IECDisplay();
 
-  virtual void begin();
+  virtual void begin(uint32_t rotation);
 
   virtual void setCurrentImageName(std::string iname);
   virtual void setCurrentFileName(std::string fname);

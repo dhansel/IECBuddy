@@ -25,9 +25,9 @@ IECDisplay_SSD1306::~IECDisplay_SSD1306()
 }
 
 
-void IECDisplay_SSD1306::begin()
+void IECDisplay_SSD1306::begin(uint32_t rotation)
 {
-  IECDisplay::begin();
+  IECDisplay::begin(rotation);
 
   PIN_SSD1306_WIRE.setSDA(PIN_SSD1306_I2C_SDA);
   PIN_SSD1306_WIRE.setSCL(PIN_SSD1306_I2C_SCL);

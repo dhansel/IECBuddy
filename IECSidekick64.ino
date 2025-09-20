@@ -706,6 +706,13 @@ void setup()
 
   iecConfig.begin("/$CONFIG$");
 
+  // setting fsformat==1 will format filesystem on reboot
+  if( iecConfig.getValue("fsformat")=="1" )
+    {
+      LittleFS.format();
+      iecConfig.clear();
+    }
+
   string displayType = iecConfig.getValue("display");
   if( displayType.empty() )
     {
@@ -724,7 +731,7 @@ void setup()
 #endif
   iecDisplay = IECDisplay::Create(displayType);
 
-  iecDisplay->begin();
+  iecDisplay->begin(atoi(iecConfig.getValue("rotate").c_str()));
 
   iecDrive.setConfig(&iecConfig);
   iecDrive.setDisplay(iecDisplay);

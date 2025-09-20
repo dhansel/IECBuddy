@@ -16,7 +16,7 @@ class IECDisplay_SSD1306 : public IECDisplay
   IECDisplay_SSD1306();
   virtual ~IECDisplay_SSD1306();
 
-  virtual void begin();
+  virtual void begin(uint32_t rotation);
 
   virtual void showMessage(std::string msg);
   virtual void showTransmitMessage(std::string msg, std::string fileName);
