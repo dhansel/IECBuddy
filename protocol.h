@@ -16,6 +16,7 @@
 #define CMD_DELETE_FILE     12
 #define CMD_SHOW_BITMAP     13
 #define CMD_SHOW_GIF        14
+#define CMD_REBOOT          15
 #define CMD_INVALID          0xFFFFFFFF
 
 #define ST_OK                0

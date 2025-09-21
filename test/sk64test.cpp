@@ -613,6 +613,23 @@ StatusType clearConfig()
 }
 
 
+StatusType reboot()
+{
+  StatusType status = ST_OK;
+
+  // send command
+  if( status==ST_OK )
+    if( !send_command(CMD_REBOOT) )
+      status = ST_COM_ERROR;
+
+  // receive status
+  if( status==ST_OK )
+    status = recv_status();
+
+  return status;
+}
+
+
 StatusType deleteFile(const string &fname)
 {
   StatusType status = ST_OK;
@@ -881,6 +898,10 @@ void execCommand(string cmd)
     {
       status = clearConfig();
     }
+  else if( cmd=="reboot" )
+    {
+      status = reboot();
+    }
   else if( cmd=="print" )
     {
       StatusType status = getFile(PRINTDATAFILE, "printdata.dat");
@@ -948,6 +969,7 @@ void showCommands()
   printf("  mount image : mount the given D64/G64/G81... image (image file must exist)\n");
   printf("  unmount     : unmount the currently mounted disk image (if any)\n");
   printf("  getmounted  : print the currently mounted disk image\n");
+  printf("  reboot      : restarts the IECDevice\n");
   printf("  setconfigval key value : set the value of 'key' to 'value' in the $CONFIG$ file\n");
   printf("  getconfigval key       : print the current value of 'key' in the $CONFIG$ file\n");
   printf("  clearconfig            : clear ALL settings in the $CONFIG$ file\n");

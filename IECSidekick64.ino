@@ -579,6 +579,15 @@ void clearConfig()
 }
 
 
+void reboot()
+{
+  send_status(ST_OK);
+  Serial.flush();
+  delay(100);
+  rp2040.reboot();
+}
+
+
 void showBitmap()
 {
   StatusType status = ST_OK;
@@ -679,6 +688,7 @@ void execCmd(CommandType cmd)
     case CMD_DELETE_FILE:    deleteFile(); break;
     case CMD_SHOW_BITMAP:    showBitmap(); break;
     case CMD_SHOW_GIF:       showGIF(); break;
+    case CMD_REBOOT:         reboot(); break;
 
     default: 
       {
