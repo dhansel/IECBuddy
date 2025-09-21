@@ -678,28 +678,23 @@ void IECDisplay_ST7789::showPrintStatus(bool printing)
   static unsigned long spinto = 0;
   const char spinchr[] = "|/-\\";
 
-  int w = 25;
-  int x = m_display->width()-w;
-  int y = 0;
-
-  if( printing )
+  if( !printing || millis()>spinto )
     {
-      if( millis()>spinto )
+      m_display->setTextSize(3);
+      int w = 25;
+      int h = m_display->getTextLineHeight();
+      int x = m_display->width()-w;
+      int y = h;
+
+      m_display->clearRegion(x, y, w, y+h);
+      if( printing )
         {
-          m_display->clearRegion(x, y, w, m_display->getTextLineHeight());
-          m_display->setTextSize(3);
           m_display->setTextColor(RGB565_YELLOW);
           m_display->setCursor(x, y);
           m_display->write(spinchr[spin]);
           spin   = (spin+1) & 3;
           spinto = millis()+250;
         }
-    }
-  else
-    {
-      m_display->clearRegion(x, y, w, m_display->getTextLineHeight());
-      spinto = 0;
-      spin   = 0;
     }
 }
 
