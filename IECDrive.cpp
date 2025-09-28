@@ -530,13 +530,22 @@ uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
           const char *fn = findFile(name, ftype);
           if( fn==NULL )
             {
-              // given file type not found, if we can't find any file (any extension)
-              // then the file doesn't exist, otherwise it's a file type mismatch
               fn = findFile(name, FT_ANY);
               if( fn==NULL || isHiddenFile(fn) )
-                res = E_NOTFOUND;
+                {
+                  // can't find the file with any extension => file doesn't exist
+                  res = E_NOTFOUND;
+                }
+              else if( channel==0 && mountDiskImage(fn) )
+                {
+                  // the file is a mountable disk image => mount it and read its directory
+                  res = m_drive->openFile(channel, "$") ? E_OK : E_VDRIVE;
+                }
               else
-                res = E_MISMATCH;
+                {
+                  // can't load this type of file
+                  res = E_MISMATCH;
+                }
             }
           else
             {
@@ -570,7 +579,17 @@ uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
 bool IECDrive::open(uint8_t channel, const char *name)
 {
   if( m_drive->isOk() )
-    m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
+    {
+      if( channel==0 && (strcmp(name, "..")==0 || strcmp(name, "/")==0) )
+        {
+          // loading ".." or "/" while a disk image is mounted
+          // => unmount image and load SD card directory
+          unmountDiskImage();
+          m_errorCode = openDir("$");
+        }
+      else
+        m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
+    }
   else if( channel==0 && name[0]=='$' )
     m_errorCode = openDir(name);
   else if ( !m_file )
