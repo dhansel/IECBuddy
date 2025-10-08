@@ -704,7 +704,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
         p1 = p;
         p = memchr(p1, '=', limit - p1);
 
-        if( !special ) {
+        if( !special && cmd_parse->command[0]!='B' ) {
         p2 = memchr(p1, ',', limit - p1);
         if (p && p2 && (p2 < p)) {
             p = p2;
