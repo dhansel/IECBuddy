@@ -205,12 +205,8 @@ void archdep_flush_memcache(ADFILE *f)
 
   if( (s_imageData!=NULL) && (s_imageDataMinWritePos<s_imageDataMaxWritePos) )
     {
-      uint32_t n = s_imageDataMaxWritePos-s_imageDataMinWritePos;
-      DBG(("archdep_flush_memcache: writing memory data (offset %u, size %u) back to file '%s'...", 
-           s_imageDataMinWritePos, n, s_lfsFiles[fidx].fullName()));
+      DBG(("archdep_flush_memcache: writing memory data back to file '%s'\r\n", s_lfsFiles[fidx].fullName()));
       char *name = strdup(s_lfsFiles[fidx].fullName());
-
-      s_lfsFiles[fidx].close();
 
       bool ok = false;
       struct FSInfo info;
@@ -218,6 +214,9 @@ void archdep_flush_memcache(ADFILE *f)
         {
           // we have enough space for LittleFS to write a new copy and then delete the old
           // so we can proceed with only writing the modified part
+          uint32_t n = s_imageDataMaxWritePos-s_imageDataMinWritePos;
+          DBG(("archdep_flush_memcache: doing partial write (offset %u, size %u) ...", s_imageDataMinWritePos, n));
+          s_lfsFiles[fidx].close();
           s_lfsFiles[fidx] = LittleFS.open(name, "r+");
           ok = image_write_to_file(s_lfsFiles[fidx], s_imageDataMinWritePos, n);
         }
@@ -225,6 +224,8 @@ void archdep_flush_memcache(ADFILE *f)
         {
           // not enough space on file system to do a partial rewrite (LittleFS first writes
           // the new file and then deletes the old) => rewrite the whole file
+          DBG(("archdep_flush_memcache: doing full rewrite ...", 0));
+          s_lfsFiles[fidx].close();
           s_lfsFiles[fidx] = LittleFS.open(name, "w");
           ok = image_write_to_file(s_lfsFiles[fidx], 0, s_imageDataSize);
         }
