@@ -753,6 +753,9 @@ static int vdrive_command_block(vdrive_t *vdrive, cbmdos_cmd_parse_plus_t *cmd)
             } else {
                 vdrive_bam_free_sector(vdrive, track, sector);
             }
+            /* update bam */
+            vdrive_bam_write_bam(vdrive);
+
             status = CBMDOS_IPE_OK;
             goto out;
             break;
