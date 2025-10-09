@@ -100,6 +100,9 @@ void IECDrive::begin()
   int d = std::atoi(m_config->getValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
 
+  d = std::atoi(m_config->getValue("diskflush").c_str());
+  m_drive->setCacheFlushInterval(d);
+
   m_display->redraw();
   updateDisplayStatus();
 
@@ -212,6 +215,9 @@ void IECDrive::task()
       const char *iname = m_drive->getDiskImageFilename();
       m_display->setCurrentImageName(iname ? iname : "");
     }
+
+  // check whether VDrive cache needs to be flushed
+  m_drive->checkFlushCache();
 
   // handle IEC serial bus communication, the open/read/write/close/execute 
   // functions will be called from within this when required

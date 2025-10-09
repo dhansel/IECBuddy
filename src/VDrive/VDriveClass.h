@@ -98,7 +98,20 @@ class VDrive
   //    otherwise it will be converted from ASCII to PETSCII
   static bool createDiskImage(const char *filename, const char *itype, const char *name, bool convertNameToPETSCII);
 
+#ifdef ARDUINO
+  void setCacheFlushInterval(int32_t ms);
+  void checkFlushCache();
+#endif
+
  private:
+
+#ifdef ARDUINO
+  void markCacheDirty();
+  void flushCache();
+  int32_t  m_flushCacheAfter;
+  uint32_t m_nextCacheFlush;
+#endif
+
   int m_numOpenChannels;
   struct vdrive_s *m_drive;
 };

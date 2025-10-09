@@ -21,6 +21,10 @@ VDrive::VDrive(uint8_t unit)
   m_drive = (vdrive_t *) lib_calloc(1, sizeof(struct vdrive_s));
   vdrive_device_setup(m_drive, unit);
   m_numOpenChannels = 0;
+#ifdef ARDUINO
+  m_flushCacheAfter = 0;
+  m_nextCacheFlush  = 0xFFFFFFFF;
+#endif
 }
 
 
@@ -93,6 +97,10 @@ void VDrive::closeDiskImage()
       m_drive->image = NULL;
       m_numOpenChannels = 0;
     }
+
+#ifdef ARDUINO
+  m_nextCacheFlush = 0xFFFFFFFF;
+#endif
 }
 
 
@@ -236,8 +244,7 @@ bool VDrive::closeFile(uint8_t channel)
   if( wasInUse && !isInUse ) m_numOpenChannels--;
 
 #ifdef ARDUINO
-  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
-    archdep_flush_memcache(m_drive->image->media.fsimage->fd);
+  markCacheDirty();
 #endif
 
   return res;
@@ -366,8 +373,7 @@ int VDrive::execute(const char *cmd, size_t cmdLen, bool convertToPETSCII)
 
   int vres = vdrive_command_execute(m_drive, (uint8_t *) (pcmd==NULL ? cmd : pcmd), (unsigned int)cmdLen);
 #ifdef ARDUINO
-  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
-    archdep_flush_memcache(m_drive->image->media.fsimage->fd);
+  markCacheDirty();
 #endif
 
   if( pcmd!=NULL ) lib_free(pcmd);
@@ -391,3 +397,50 @@ bool VDrive::writeSector(uint32_t track, uint32_t sector, const uint8_t *buf)
 {
   return vdrive_write_sector(m_drive, buf, track, sector)==CBMDOS_IPE_OK;
 }
+
+
+#ifdef ARDUINO
+#include <Arduino.h>
+
+void VDrive::setCacheFlushInterval(int32_t ms)
+{
+  m_flushCacheAfter = ms;
+  if( ms>0 )
+    {
+      if( m_nextCacheFlush<0xFFFFFFFF )
+        m_nextCacheFlush = millis() + m_flushCacheAfter;
+    }
+  else
+    {
+      m_nextCacheFlush = 0xFFFFFFFF;
+      if( ms==0 ) flushCache();
+    }
+}
+
+
+void VDrive::checkFlushCache()
+{
+  if( m_flushCacheAfter>0 && millis()>m_nextCacheFlush )
+    {
+      flushCache();
+      m_nextCacheFlush = 0xFFFFFFFF;
+    }
+}
+
+
+void VDrive::markCacheDirty()
+{
+  if( m_flushCacheAfter==0 )
+    flushCache();
+  else if( m_flushCacheAfter>0 )
+    m_nextCacheFlush = millis() + m_flushCacheAfter;
+}
+
+
+void VDrive::flushCache()
+{
+  if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
+    archdep_flush_memcache(m_drive->image->media.fsimage->fd);
+}
+
+#endif
