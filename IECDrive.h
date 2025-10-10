@@ -69,10 +69,12 @@ class IECDrive : public IECFileDevice
   Dir  m_dir;
 
   int     m_curFileChannel;
-  bool    m_dirOpen;
+  bool    m_dirOpen, m_showExt;
   uint8_t m_pinLED, m_errorCode, m_scratched;
   uint8_t m_dirBufferLen, m_dirBufferPtr;
   char    m_dirBuffer[IEC_BUFSIZE];
+  int32_t m_diskFlushTimeout;
+  uint32_t m_lastActivity;
   const char *m_dirPattern;
 };
 

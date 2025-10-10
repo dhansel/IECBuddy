@@ -74,6 +74,8 @@ IECDrive::IECDrive(uint8_t devnum, uint8_t pinLED) :
   m_drive = NULL;
   m_curFileChannel = -1;
   m_display = NULL;
+  m_lastActivity = 0;
+  m_showExt = false;
 }
 
 
@@ -97,11 +99,11 @@ void IECDrive::begin()
   m_errorCode = E_SPLASH;
   m_drive = new VDrive(0);
 
+  // read configuration settings
   int d = std::atoi(m_config->getValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
-
-  d = std::atoi(m_config->getValue("diskflush").c_str());
-  m_drive->setCacheFlushInterval(d);
+  m_diskFlushTimeout = std::atoi(m_config->getValue("diskflush").c_str());
+  m_showExt = std::atoi(m_config->getValue("showext").c_str())!=0;
 
   m_display->redraw();
   updateDisplayStatus();
@@ -148,6 +150,7 @@ void IECDrive::task()
         {
           current = m_drive->getDiskImageFilename();
           m_drive->closeDiskImage();
+          m_lastActivity = 0;
         }
 
       m_display->showMessage("Searching...");
@@ -216,12 +219,18 @@ void IECDrive::task()
       m_display->setCurrentImageName(iname ? iname : "");
     }
 
-  // check whether VDrive cache needs to be flushed
-  m_drive->checkFlushCache();
-
   // handle IEC serial bus communication, the open/read/write/close/execute 
   // functions will be called from within this when required
   IECFileDevice::task();
+
+  // check whether VDrive cache needs to be flushed
+  if( m_diskFlushTimeout>=0 && m_lastActivity>0 && (millis()-m_lastActivity) >= m_diskFlushTimeout )
+    {
+      setLEDState(LED_BLUE);
+      m_drive->flushCache();
+      m_lastActivity = 0;
+      setLEDState(LED_OFF);
+    }
 }
 
 
@@ -232,7 +241,10 @@ bool IECDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
   bool res = false;
 
   if( m_drive->isOk() )
-    res = m_drive->readSector(track, sector, buffer);
+    {
+      res = m_drive->readSector(track, sector, buffer);
+      m_lastActivity = millis();
+    }
 
   // for debug log
   if( res ) IECFileDevice::epyxReadSector(track, sector, buffer);
@@ -249,7 +261,10 @@ bool IECDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
   IECFileDevice::epyxWriteSector(track, sector, buffer);
 
   if( m_drive->isOk() )
-    res = m_drive->writeSector(track, sector, buffer);
+    {
+      res = m_drive->writeSector(track, sector, buffer);
+      m_lastActivity = millis();
+    }
 
   return res;
 }
@@ -357,7 +372,7 @@ bool IECDrive::readDir(uint8_t *data)
                       ftype[0] = toupper(name[dot+1]);
                       ftype[1] = toupper(name[dot+2]);
                       ftype[2] = toupper(name[dot+3]);
-                      if( dot<n ) n = dot;
+                      if( dot<n && !m_showExt ) n = dot;
                     }
                   
                   m_dirBufferLen += n;
@@ -595,6 +610,8 @@ bool IECDrive::open(uint8_t channel, const char *name)
         }
       else
         m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
+
+      m_lastActivity = millis();
     }
   else if( channel==0 && name[0]=='$' )
     m_errorCode = openDir(name);
@@ -640,6 +657,8 @@ uint8_t IECDrive::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, boo
         n = nn;
       else
         m_errorCode = E_VDRIVE;
+
+      m_lastActivity = millis();
     }
   else if( m_file )
     n = m_file.read(buffer, bufferSize);
@@ -664,6 +683,8 @@ uint8_t IECDrive::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bo
         n = nn;
       else
         m_errorCode = E_VDRIVE;
+
+      m_lastActivity = millis();
     }
   else if( m_file )
     n = m_file.write(buffer, bufferSize);
@@ -680,6 +701,7 @@ void IECDrive::close(uint8_t channel)
   if( m_drive->isFileOk(channel) )
     {
       m_drive->closeFile(channel);
+      m_lastActivity = millis();
     }
   else if( m_dirOpen )
     { 
@@ -758,6 +780,8 @@ void IECDrive::execute(const char *command, uint8_t len)
       // prefixed to the data from the new record
       if( command[0]=='P' && len>=2 )
         clearReadBuffer(command[1] & 0x0f);
+
+      m_lastActivity = millis();
     }
   else if( strncmp(command, "S:", 2)==0 )
     {
@@ -837,6 +861,7 @@ void IECDrive::execute(const char *command, uint8_t len)
           // CD "up"
           m_drive->closeDiskImage();
           m_display->setCurrentImageName("");
+          m_lastActivity = 0;
         }
 
       m_errorCode = E_OK;
@@ -847,6 +872,7 @@ void IECDrive::execute(const char *command, uint8_t len)
         {
           m_drive->closeDiskImage();
           m_display->setCurrentImageName("");
+          m_lastActivity = 0;
         }
 
       if( m_drive->isOk() )
@@ -886,7 +912,16 @@ void IECDrive::execute(const char *command, uint8_t len)
           setStatus(v.c_str(), v.size());
         }
       else
-        m_config->setValue(string(command).substr(0, c-command), string(c+1));
+        {
+          string key = string(command).substr(0, c-command);
+          string val = string(c+1);
+          m_config->setValue(key, val);
+
+          if( tolower(key)=="diskflush" )
+            m_diskFlushTimeout = std::atoi(val.c_str());
+          else if( tolower(key)=="showext" )
+            m_showExt = std::atoi(val.c_str())!=0;
+        }
 
       m_errorCode = E_OK;
     }
@@ -962,6 +997,7 @@ void IECDrive::unmountDiskImage()
     m_drive->closeDiskImage();
 
   m_display->setCurrentImageName("");
+  m_lastActivity = 0;
 }
 
 
@@ -972,6 +1008,7 @@ bool IECDrive::mountDiskImage(const char *name)
 
   bool res = m_drive->openDiskImage(name);
   m_display->setCurrentImageName(res ? name : "");
+  m_lastActivity = 0;
 
   return res;
 }

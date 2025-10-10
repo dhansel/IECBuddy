@@ -98,19 +98,13 @@ class VDrive
   //    otherwise it will be converted from ASCII to PETSCII
   static bool createDiskImage(const char *filename, const char *itype, const char *name, bool convertNameToPETSCII);
 
-#ifdef ARDUINO
-  void setCacheFlushInterval(int32_t ms);
-  void checkFlushCache();
-#endif
+  // on some architectures (e.g. LittleFS on Arduino) we cache writes in memory
+  // and write the cached data back when the image id un-mounted. Call flushCache()
+  // to force a cache write-back earlier than that.
+  void flushCache();
 
  private:
-
-#ifdef ARDUINO
-  void markCacheDirty();
-  void flushCache();
-  int32_t  m_flushCacheAfter;
-  uint32_t m_nextCacheFlush;
-#endif
+  void countOpenChannels();
 
   int m_numOpenChannels;
   struct vdrive_s *m_drive;

@@ -21,10 +21,6 @@ VDrive::VDrive(uint8_t unit)
   m_drive = (vdrive_t *) lib_calloc(1, sizeof(struct vdrive_s));
   vdrive_device_setup(m_drive, unit);
   m_numOpenChannels = 0;
-#ifdef ARDUINO
-  m_flushCacheAfter = 0;
-  m_nextCacheFlush  = 0xFFFFFFFF;
-#endif
 }
 
 
@@ -97,10 +93,6 @@ void VDrive::closeDiskImage()
       m_drive->image = NULL;
       m_numOpenChannels = 0;
     }
-
-#ifdef ARDUINO
-  m_nextCacheFlush = 0xFFFFFFFF;
-#endif
 }
 
 
@@ -228,9 +220,7 @@ bool VDrive::openFile(uint8_t channel, const char *name, bool convertNameToPETSC
   else
     res = vdrive_iec_open(m_drive, (uint8_t *) name, (unsigned int) strlen(name), channel, NULL)==0;
 
-  if( m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE )
-    m_numOpenChannels++;
-
+  countOpenChannels();
   return res;
 }
 
@@ -241,12 +231,7 @@ bool VDrive::closeFile(uint8_t channel)
   bool res = vdrive_iec_close(m_drive, channel)==SERIAL_OK;
   bool isInUse = m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE;
 
-  if( wasInUse && !isInUse ) m_numOpenChannels--;
-
-#ifdef ARDUINO
-  markCacheDirty();
-#endif
-
+  countOpenChannels();
   return res;
 }
 
@@ -372,11 +357,10 @@ int VDrive::execute(const char *cmd, size_t cmdLen, bool convertToPETSCII)
     }
 
   int vres = vdrive_command_execute(m_drive, (uint8_t *) (pcmd==NULL ? cmd : pcmd), (unsigned int)cmdLen);
-#ifdef ARDUINO
-  markCacheDirty();
-#endif
-
   if( pcmd!=NULL ) lib_free(pcmd);
+
+  // some commands (e.g. "I") may close channels
+  countOpenChannels();
 
   if( vres==0 )
     return 1;
@@ -399,48 +383,17 @@ bool VDrive::writeSector(uint32_t track, uint32_t sector, const uint8_t *buf)
 }
 
 
-#ifdef ARDUINO
-#include <Arduino.h>
-
-void VDrive::setCacheFlushInterval(int32_t ms)
-{
-  m_flushCacheAfter = ms;
-  if( ms>0 )
-    {
-      if( m_nextCacheFlush<0xFFFFFFFF )
-        m_nextCacheFlush = millis() + m_flushCacheAfter;
-    }
-  else
-    {
-      m_nextCacheFlush = 0xFFFFFFFF;
-      if( ms==0 ) flushCache();
-    }
-}
-
-
-void VDrive::checkFlushCache()
-{
-  if( m_flushCacheAfter>0 && millis()>m_nextCacheFlush )
-    {
-      flushCache();
-      m_nextCacheFlush = 0xFFFFFFFF;
-    }
-}
-
-
-void VDrive::markCacheDirty()
-{
-  if( m_flushCacheAfter==0 )
-    flushCache();
-  else if( m_flushCacheAfter>0 )
-    m_nextCacheFlush = millis() + m_flushCacheAfter;
-}
-
-
 void VDrive::flushCache()
 {
   if( m_drive->image!=NULL && m_drive->image->media.fsimage!=NULL )
     archdep_flush_memcache(m_drive->image->media.fsimage->fd);
 }
 
-#endif
+
+void VDrive::countOpenChannels()
+{
+  m_numOpenChannels = 0;
+  for(uint8_t i=0; i<15; i++)
+    if( m_drive->buffers[i].mode!=BUFFER_NOT_IN_USE )
+      m_numOpenChannels++;
+}
