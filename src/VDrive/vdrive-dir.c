@@ -643,7 +643,7 @@ int vdrive_dir_first_directory(vdrive_t *vdrive,
 
         /* start address */
         *l++ = 1;
-        *l++ = 4;
+        *l++ = 8; // DH: should be 4 but 8 is better for LOAD"$",8,1
 
     } else {
 
