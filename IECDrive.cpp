@@ -234,16 +234,17 @@ void IECDrive::task()
 }
 
 
-
-#if defined(SUPPORT_EPYX) && defined(SUPPORT_EPYX_SECTOROPS)
+#if defined(IEC_FP_EPYX) && defined(IEC_FP_EPYX_SECTOROPS)
 bool IECDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 {
   bool res = false;
 
   if( m_drive->isOk() )
     {
+      setLEDState(LED_GREEN);
       res = m_drive->readSector(track, sector, buffer);
       m_lastActivity = millis();
+      setLEDState(LED_OFF);
     }
 
   // for debug log
@@ -262,8 +263,10 @@ bool IECDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 
   if( m_drive->isOk() )
     {
+      setLEDState(LED_GREEN);
       res = m_drive->writeSector(track, sector, buffer);
       m_lastActivity = millis();
+      setLEDState(LED_OFF);
     }
 
   return res;
@@ -759,6 +762,18 @@ void IECDrive::execute(const char *command, uint8_t len)
         }
       else
         m_errorCode = E_INVCMD;
+    }
+  else if( strncmp(command, "M-R\xff\xff", 5)==0 )
+    {
+      uint8_t data[2] = {254, 0};
+      setStatus((char *) data, 2);
+      m_errorCode = E_OK;
+    }
+  else if( strncmp(command, "M-W\x77\x00\x02", 6)==0 )
+    {
+      // set device number
+      m_devnr = command[6] & 0x0F;
+      m_errorCode = E_OK;
     }
   else if( m_drive->isOk() && cdcmd==0 )
     {
