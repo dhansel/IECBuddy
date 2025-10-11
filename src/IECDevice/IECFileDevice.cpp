@@ -621,7 +621,15 @@ void IECFileDevice::fileTask()
           {
             for(uint8_t i=0; i<m_writeBufferLen; i++) dbg_data(m_writeBuffer[i]);
             dbg_print_data();
-            Serial.print(F("EXECUTE: ")); Serial.println(cmd);
+            Serial.print(F("EXECUTE: "));
+            for(uint8_t i=0; i<m_writeBufferLen; i++)
+              {
+                if( isprint(m_writeBuffer[i]) )
+                  Serial.print((char) m_writeBuffer[i]);
+                else if( m_writeBuffer[i]!=13 || i<m_writeBufferLen-1 )
+                  { Serial.print("["); print_hex(m_writeBuffer[i]); Serial.print("]"); }
+              }
+            Serial.println();
           }
 #endif
 #ifdef IEC_FP_EPYX
