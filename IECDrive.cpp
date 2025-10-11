@@ -789,12 +789,19 @@ void IECDrive::execute(const char *command, uint8_t len)
       else
         m_errorCode = r==0 ? E_VDRIVE : E_OK;
 
-      // when executing a "P" (position relative file) command we need
-      // to clear the read buffer of the channel for which this command
-      // is issued, otherwise remaining characters in the buffer will be
-      // prefixed to the data from the new record
+      // when executing a "P" (position relative file) or B-P (position
+      // buffer read pointer) command we need to clear the read buffer of
+      // the channel for which this command is issued, otherwise remaining
+      // characters in the buffer will be prefixed to the data from the new
+      // record or buffer location
       if( command[0]=='P' && len>=2 )
         clearReadBuffer(command[1] & 0x0f);
+      else if( strncmp(command, "B-P", 3)==0 )
+        {
+          int i = 3;
+          while( i<len && !isdigit(command[i]) ) i++;
+          if( i<len ) clearReadBuffer(atoi(command+i));
+        }
 
       m_lastActivity = millis();
     }
