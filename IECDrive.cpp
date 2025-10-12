@@ -19,6 +19,7 @@ using namespace std;
 #define E_MISMATCH   64
 #define E_SPLASH     73
 #define E_NOTREADY   74
+#define E_MEMEXE     97
 #define E_TOOMANY    98
 #define E_VDRIVE     99
 
@@ -763,9 +764,17 @@ void IECDrive::execute(const char *command, uint8_t len)
       else
         m_errorCode = E_INVCMD;
     }
+  else if( strncmp(command, "M-R\xfe\xff", 5)==0 )
+    {
+      // identify as C1541
+      uint8_t data[3] = {0x67, 0xFE, 0};
+      setStatus((char *) data, 3);
+      m_errorCode = E_OK;
+    }
   else if( strncmp(command, "M-R\xff\xff", 5)==0 )
     {
-      uint8_t data[2] = {254, 0};
+      // identify as C1541
+      uint8_t data[2] = {0xFE, 0};
       setStatus((char *) data, 2);
       m_errorCode = E_OK;
     }
@@ -774,6 +783,10 @@ void IECDrive::execute(const char *command, uint8_t len)
       // set device number
       m_devnr = command[6] & 0x0F;
       m_errorCode = E_OK;
+    }
+  else if( strncmp(command, "M-E", 3)==0 )
+    {
+      m_errorCode = E_MEMEXE;
     }
   else if( m_drive->isOk() && cdcmd==0 )
     {
@@ -790,9 +803,9 @@ void IECDrive::execute(const char *command, uint8_t len)
         m_errorCode = r==0 ? E_VDRIVE : E_OK;
 
       // when executing commands that read data into a buffer or reposition
-      // the pointer we need to clear the our read buffer of channel for which 
-      // this command is issued, otherwise remaining characters in the buffer 
-      // will be prefixed to the data from the new record or buffer location
+      // the pointer we need to clear the our internal read buffer of the channel
+      // for which this command is issued, otherwise remaining characters in the
+      // buffer will be prefixed to the data from the new record or buffer location
       if( command[0]=='P' && len>=2 )
         clearReadBuffer(command[1] & 0x0f);
       else if( strncmp(command, "B-P", 3)==0 || strncmp(command, "B-R", 3)==0 )
@@ -928,7 +941,12 @@ void IECDrive::execute(const char *command, uint8_t len)
         }
     }
   else if( strcmp(command, "I")==0 || strcmp(command, "X+\x0dUJ")==0 )
-    m_errorCode = E_OK;
+    {
+      m_dirOpen = false;
+      m_file.close();
+      m_curFileChannel = -1;
+      m_errorCode = E_OK;
+    }
   else if( strncmp(command, "CFG:", 4)==0 )
     {
       command += 4;
@@ -955,7 +973,15 @@ void IECDrive::execute(const char *command, uint8_t len)
   else
     m_errorCode = E_INVCMD;
 
-  if( m_errorCode!=E_OK ) updateDisplayStatus();
+  if( command[0]=='I' )
+    {
+      m_display->endProgress();
+      m_display->setCurrentFileName("");
+      updateDisplayStatus();
+    }
+  else if( m_errorCode!=E_OK )
+    updateDisplayStatus();
+
   setLEDState(LED_OFF);
 }
 
@@ -977,6 +1003,7 @@ const char *IECDrive::getStatusMessage(uint8_t statusCode)
     case E_MISMATCH:             { message = "FILE TYPE MISMATCH"; break; }
     case E_INVCMD:
     case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
+    case E_MEMEXE:               { message = "M-E NOT SUPPORTED"; break; }
     case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
     case E_SPLASH:               { message = "IEC-DRIVE V0.1"; break; }
     default:                     { message = "UNKNOWN"; break; }
@@ -992,23 +1019,23 @@ void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
     {
       strncpy(buffer, m_drive->getStatusString(), bufferSize);
       buffer[bufferSize-1] = '\r';
-      m_errorCode = E_OK;
-      return;
     }
+  else
+    {
+      const char *message = getStatusMessage(m_errorCode);
+      uint8_t i = 0;
+      buffer[i++] = '0' + (m_errorCode / 10);
+      buffer[i++] = '0' + (m_errorCode % 10);
+      buffer[i++] = ',';
+      strcpy(buffer+i, message);
+      i += strlen(message);
 
-  const char *message = getStatusMessage(m_errorCode);
-  uint8_t i = 0;
-  buffer[i++] = '0' + (m_errorCode / 10);
-  buffer[i++] = '0' + (m_errorCode % 10);
-  buffer[i++] = ',';
-  strcpy(buffer+i, message);
-  i += strlen(message);
-
-  if( m_errorCode!=E_SCRATCHED ) m_scratched = 0;
-  buffer[i++] = ',';
-  buffer[i++] = '0' + (m_scratched / 10);
-  buffer[i++] = '0' + (m_scratched % 10);
-  strcpy(buffer+i, ",00\r");
+      if( m_errorCode!=E_SCRATCHED ) m_scratched = 0;
+      buffer[i++] = ',';
+      buffer[i++] = '0' + (m_scratched / 10);
+      buffer[i++] = '0' + (m_scratched % 10);
+      strcpy(buffer+i, ",00\r");
+    }
 
   if( m_errorCode!=E_OK )
     {
