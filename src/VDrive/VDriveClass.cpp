@@ -227,10 +227,7 @@ bool VDrive::openFile(uint8_t channel, const char *name, bool convertNameToPETSC
 
 bool VDrive::closeFile(uint8_t channel)
 {
-  bool wasInUse = m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE;
   bool res = vdrive_iec_close(m_drive, channel)==SERIAL_OK;
-  bool isInUse = m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE;
-
   countOpenChannels();
   return res;
 }
