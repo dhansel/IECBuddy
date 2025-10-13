@@ -627,12 +627,12 @@ int vdrive_bam_allocate_chain(vdrive_t *vdrive, unsigned int t, unsigned int s)
         /* Check for illegal track or sector.  */
         if (disk_image_check_sector(vdrive->image, t, s) < 0) {
             vdrive_command_set_error(vdrive, CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR,
-                                     s, t);
+                                     t, s);
             return CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR;
         }
         if (!vdrive_bam_allocate_sector(vdrive, t, s)) {
             /* The real drive does not seem to catch this error.  */
-            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, s, t);
+            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, t, s);
             return CBMDOS_IPE_NO_BLOCK;
         }
         rc = vdrive_read_sector(vdrive, tmp, t, s);
@@ -661,12 +661,12 @@ int vdrive_bam_allocate_chain_255(vdrive_t *vdrive, unsigned int t, unsigned int
         /* Check for illegal track or sector.  */
         if (disk_image_check_sector(vdrive->image, t, s) < 0) {
             vdrive_command_set_error(vdrive, CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR,
-                                     s, t);
+                                     t, s);
             return CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR;
         }
         if (!vdrive_bam_allocate_sector(vdrive, t, s)) {
             /* The real drive does not seem to catch this error.  */
-            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, s, t);
+            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, t, s);
             return CBMDOS_IPE_NO_BLOCK;
         }
         rc = vdrive_read_sector(vdrive, tmp, t, s);

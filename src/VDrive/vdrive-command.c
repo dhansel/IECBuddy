@@ -2657,16 +2657,17 @@ static int vdrive_command_allocate_chain(vdrive_t *vdrive, unsigned int t, unsig
         /* Check for illegal track or sector.  */
         if (disk_image_check_sector(vdrive->image, t, s) < 0) {
             vdrive_command_set_error(vdrive, CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR,
-                                     s, t);
+                                     t, s);
             return CBMDOS_IPE_ILLEGAL_TRACK_OR_SECTOR;
         }
         if (!vdrive_bam_allocate_sector(vdrive, t, s)) {
             /* The real drive does not seem to catch this error.  */
-            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, s, t);
+            vdrive_command_set_error(vdrive, CBMDOS_IPE_NO_BLOCK, t, s);
             return CBMDOS_IPE_NO_BLOCK;
         }
         rc = vdrive_read_sector(vdrive, tmp, t, s);
         if (rc > 0) {
+            vdrive_command_set_error(vdrive, rc, t, s);
             return rc;
         }
         if (rc < 0) {
@@ -3046,9 +3047,11 @@ out:
         lib_free(oldbamstate);
     }
 
+#if 0
     if (vdrive->last_code != CBMDOS_IPE_OK ) {
         vdrive_command_set_error(vdrive, status, t, s);
     }
+#endif
 
     return status;
 }

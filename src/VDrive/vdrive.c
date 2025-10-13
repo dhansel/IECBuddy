@@ -425,7 +425,7 @@ int vdrive_attach_image(disk_image_t *image, unsigned int unit,
     switch (image->type) {
         case DISK_IMAGE_TYPE_D64:
             vdrive->image_format = VDRIVE_IMAGE_FORMAT_1541;
-            vdrive->num_tracks = NUM_TRACKS_1541;
+            vdrive->num_tracks = image->tracks>NUM_TRACKS_1541 ? EXT_TRACKS_1541 : NUM_TRACKS_1541;
             vdrive->bam_size = 0x100;
             vdrive->current_offset = 0;
             break;
@@ -461,7 +461,7 @@ int vdrive_attach_image(disk_image_t *image, unsigned int unit,
             break;
         case DISK_IMAGE_TYPE_G64:
             vdrive->image_format = VDRIVE_IMAGE_FORMAT_1541;
-            vdrive->num_tracks = NUM_TRACKS_1541;
+            vdrive->num_tracks = image->tracks>NUM_TRACKS_1541 ? EXT_TRACKS_1541 : NUM_TRACKS_1541;
             vdrive->bam_size = 0x100;
             vdrive->current_offset = 0;
             break;
