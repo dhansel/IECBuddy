@@ -124,7 +124,7 @@ static int iec_open_read_sequential(vdrive_t *vdrive, unsigned int secondary, un
     bufferinfo_t *p = &(vdrive->buffers[secondary]);
 
     /* we should already be in the proper partition at this point */
-    vdrive_alloc_buffer(p, BUFFER_SEQUENTIAL);
+    vdrive_alloc_buffer(vdrive, p, -1, BUFFER_SEQUENTIAL);
     p->bufptr = 2;
     p->record = 1;
 
@@ -134,6 +134,7 @@ static int iec_open_read_sequential(vdrive_t *vdrive, unsigned int secondary, un
     vdrive_set_last_read(track, sector, p->buffer);
 
     if (status != 0) {
+        vdrive_command_set_error(vdrive, status, track, sector);
         vdrive_iec_close(vdrive, secondary);
         return SERIAL_ERROR;
     }
@@ -181,7 +182,7 @@ static int iec_open_read_directory(vdrive_t *vdrive, unsigned int secondary,
                    vdrive->Header_Sector);
     }
 
-    vdrive_alloc_buffer(p, BUFFER_DIRECTORY_READ);
+    vdrive_alloc_buffer(vdrive, p, -1, BUFFER_DIRECTORY_READ);
 
     p->timemode = 0;
     if (cmd_parse->command && cmd_parse->commandlength > 2
@@ -227,7 +228,7 @@ static int iec_open_write(vdrive_t *vdrive, unsigned int secondary,
     bufferinfo_t *p = &(vdrive->buffers[secondary]);
     unsigned int track, sector;
     uint8_t *slot = p->slot, *e;
-    int retval;
+    int retval, status;
 
     /* we should already be in the proper partition at this point */
     if (VDRIVE_IS_READONLY(vdrive)) {
@@ -249,7 +250,7 @@ static int iec_open_write(vdrive_t *vdrive, unsigned int secondary,
             /* replace mode: we don't want the dirent updated at all until
                 close */
             /* allocate buffers */
-            vdrive_alloc_buffer(p, BUFFER_SEQUENTIAL);
+            vdrive_alloc_buffer(vdrive, p, -1, BUFFER_SEQUENTIAL);
             p->bufptr = 2;
 
             /* Create our own slot, since the one passed is static */
@@ -267,7 +268,7 @@ static int iec_open_write(vdrive_t *vdrive, unsigned int secondary,
             if (p->readmode == CBMDOS_FAM_APPEND) {
                 /* append mode */
                 /* allocate buffers */
-                vdrive_alloc_buffer(p, BUFFER_SEQUENTIAL);
+                vdrive_alloc_buffer(vdrive, p, -1, BUFFER_SEQUENTIAL);
 
                 /* Create our own slot, since the one passed is static */
                 p->slot = lib_calloc(1, 32);
@@ -332,7 +333,7 @@ static int iec_open_write(vdrive_t *vdrive, unsigned int secondary,
         /* new file... */
 
         /* create a slot based on the opening name */
-        vdrive_dir_create_slot(p, cmd_parse->file, cmd_parse->filelength,
+        vdrive_dir_create_slot(vdrive, p, cmd_parse->file, cmd_parse->filelength,
                                cmd_parse->filetype);
 
 #if 1
@@ -388,7 +389,11 @@ static int iec_open_write(vdrive_t *vdrive, unsigned int secondary,
                p->slot + 2, 30);
 
         /* Write the sector. */
-        vdrive_write_sector(vdrive, p->dir.buffer, p->dir.track, p->dir.sector);
+        status = vdrive_write_sector(vdrive, p->dir.buffer, p->dir.track, p->dir.sector);
+        if( status!=CBMDOS_IPE_OK ) {
+          vdrive_command_set_error(vdrive, status, p->dir.track, p->dir.sector);
+          return SERIAL_ERROR;
+        }
     }
 
     return SERIAL_OK;
@@ -599,8 +604,9 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
      * Internal buffer ?
      */
     if (cmd_parse->command && cmd_parse->command[0] == '#') {
-/* FIXME: "file" has requested buffer */
-        vdrive_alloc_buffer(p, BUFFER_MEMORY_BUFFER);
+        int bufnum = -1;
+        if( cmd_parse->command[1]!=0 ) bufnum = atoi(cmd_parse->command+1);
+        vdrive_alloc_buffer(vdrive, p, bufnum, BUFFER_MEMORY_BUFFER);
 
         /* the pointer is actually 1 on the real drives. */
         /* this probably relates to the B-R and B-W commands. */
@@ -726,7 +732,7 @@ out:
 static int iec_write_sequential(vdrive_t *vdrive, bufferinfo_t *bi, int length)
 {
     unsigned int t_new, s_new;
-    int retval;
+    int retval, status;
     uint8_t *buf = bi->buffer;
     uint8_t *slot = bi->slot;
 
@@ -781,7 +787,11 @@ static int iec_write_sequential(vdrive_t *vdrive, bufferinfo_t *bi, int length)
         buf[0] = t_new;
         buf[1] = s_new;
 
-        vdrive_write_sector(vdrive, buf, bi->track, bi->sector);
+        status = vdrive_write_sector(vdrive, buf, bi->track, bi->sector);
+        if( status!=CBMDOS_IPE_OK ) {
+          vdrive_command_set_error(vdrive, status, bi->track, bi->sector);
+          return -1;
+        }
 
         bi->track = t_new;
         bi->sector = s_new;
@@ -792,7 +802,11 @@ static int iec_write_sequential(vdrive_t *vdrive, bufferinfo_t *bi, int length)
         buf[0] = 0;
         buf[1] = length - 1;
 
-        vdrive_write_sector(vdrive, buf, bi->track, bi->sector);
+        status = vdrive_write_sector(vdrive, buf, bi->track, bi->sector);
+        if( status!=CBMDOS_IPE_OK ) {
+          vdrive_command_set_error(vdrive, status, bi->track, bi->sector);
+          return -1;
+        }
     }
 
     /* Increment block count. */
@@ -951,6 +965,11 @@ static int iec_read_sequential(vdrive_t *vdrive, uint8_t *data,
             sector = (unsigned int)p->buffer[1];
 
             status = vdrive_read_sector(vdrive, p->buffer, track, sector);
+            if( status!=CBMDOS_IPE_OK ) {
+              vdrive_command_set_error(vdrive, status, track, sector);
+              return SERIAL_ERROR;
+            }
+
             p->length = p->buffer[0] ? 0 : p->buffer[1];
             vdrive_set_last_read(track, sector, p->buffer);
 
@@ -1212,6 +1231,7 @@ void vdrive_iec_listen(vdrive_t *vdrive, unsigned int secondary)
 /* called by vdrive-rel */
 int vdrive_iec_update_dirent(vdrive_t *vdrive, unsigned int channel)
 {
+    int status;
     bufferinfo_t *p = &(vdrive->buffers[channel]);
 
     /* we should already be in the proper partition at this point */
@@ -1223,7 +1243,10 @@ int vdrive_iec_update_dirent(vdrive_t *vdrive, unsigned int channel)
     memcpy(&(p->dir.buffer[p->dir.slot * 32 + 2]), p->slot + 2, 30);
 
     /* Write it back. */
-    vdrive_write_sector(vdrive, p->dir.buffer, p->dir.track, p->dir.sector);
+    status = vdrive_write_sector(vdrive, p->dir.buffer, p->dir.track, p->dir.sector);
+    if( status!=CBMDOS_IPE_OK ) {
+      vdrive_command_set_error(vdrive, status, p->dir.track, p->dir.sector);
+    }
 
     return 0;
 }

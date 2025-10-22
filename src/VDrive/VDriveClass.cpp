@@ -333,13 +333,25 @@ const char *VDrive::getStatusString()
 }
 
 
-size_t VDrive::getStatusBuffer(void *buf, size_t bufSize)
+size_t VDrive::getStatusBuffer(void *buf, size_t bufSize, bool *eoi)
 {
   // buffer[].length points to the last byte instead of giving the true length
   size_t len = m_drive->buffers[15].length+1;
-  if( bufSize<len ) len = bufSize;
-  memcpy(buf, m_drive->buffers[15].buffer, len);
-  return len;
+  if( bufSize<len )
+    {
+      memcpy(buf, m_drive->buffers[15].buffer, bufSize);
+      memmove(m_drive->buffers[15].buffer, m_drive->buffers[15].buffer+bufSize, len-bufSize);
+      m_drive->buffers[15].length -= bufSize;
+      if( eoi ) *eoi = false;
+      return bufSize;
+    }
+  else
+    {
+      memcpy(buf, m_drive->buffers[15].buffer, len);
+      vdrive_command_set_error(m_drive, 0, 0, 0);
+      if( eoi ) *eoi = true;
+      return len;
+    }
 }
 
 

@@ -95,11 +95,13 @@ void vdrive_init(void)
     FIXME: ideally this logic should allocate memory from a common drive memory
            array, which then can be used properly for M-R too
 */
-void vdrive_alloc_buffer(bufferinfo_t *p, int mode)
+void vdrive_alloc_buffer(vdrive_t *vdrive, bufferinfo_t *p, int bufnum, int mode)
 {
     size_t size = 256;
 
-    if (p->buffer == NULL) {
+    if( bufnum>=0 && bufnum<5 && (0x0300+256*bufnum)<DRIVE_RAMSIZE  )
+      p->buffer = vdrive->ram + 0x0300 + 256*bufnum;
+    else if (p->buffer == NULL) {
         /* first time actually allocate memory, and clear it */
         p->buffer = lib_malloc(size);
         memset(p->buffer, 0, size);
@@ -149,7 +151,7 @@ int vdrive_device_setup(vdrive_t *vdrive, unsigned int unit)
     }
 
     /* init command channel */
-    vdrive_alloc_buffer(&(vdrive->buffers[15]), BUFFER_COMMAND_CHANNEL);
+    vdrive_alloc_buffer(vdrive, &(vdrive->buffers[15]), -1, BUFFER_COMMAND_CHANNEL);
     vdrive_command_set_error(vdrive, CBMDOS_IPE_DOS_VERSION, 0, 0);
 
     vdrive->d90toggle = 0;
@@ -163,13 +165,13 @@ void vdrive_device_shutdown(vdrive_t *vdrive)
 {
     unsigned int i;
     bufferinfo_t *p;
-
     if (vdrive != NULL) {
         /* de-init buffers */
         for (i = 0; i < 16; i++) {
             p = &(vdrive->buffers[i]);
             vdrive_free_buffer(p);
-            lib_free(p->buffer);
+            if( p->buffer!=NULL && (p->buffer < vdrive->ram  || p->buffer > (vdrive->ram+DRIVE_RAMSIZE)) )
+              lib_free(p->buffer);
             p->buffer = NULL;
         }
     }

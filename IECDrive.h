@@ -22,6 +22,7 @@ class IECDrive : public IECFileDevice
   IECDrive(uint8_t devnum, uint8_t pinLED);
 
   virtual void getStatus(char *buffer, uint8_t bufferSize);
+  virtual uint8_t getStatusData(char *buffer, uint8_t bufferSize, bool *eoi);
   virtual void execute(const char *command, uint8_t len);
 
   void unmountDiskImage();

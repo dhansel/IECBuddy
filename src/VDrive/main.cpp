@@ -7,13 +7,15 @@
 #include "VDriveClass.h"
 
 
-int main(int argc, char **argv)
+int main_(VDrive *drive, int argc, char **argv)
 {
-  VDrive *drive = new VDrive(0);
-  
+  printf("CMD: ");
+  for(int i=2; i<argc; i++) printf("%s ", argv[i]);
+  printf("\n");
+
   if( argc>1 )
     {
-      if( argc>2 && strcmp(argv[2], "list")==0 && drive->openDiskImage(argv[1]) )
+      if( argc>2 && strcmp(argv[2], "list")==0 )
         drive->printDir();
       else if( argc>2 && strcmp(argv[2], "create")==0 )
         {
@@ -30,40 +32,52 @@ int main(int argc, char **argv)
           if( VDrive::createDiskImage(argv[1], NULL, name, true) )
             printf("Image %s created", argv[1]);
         }
-      else if( argc>3 && strcmp(argv[2], "read")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>3 && strcmp(argv[2], "read")==0 )
         {
-          if( drive->openFile(0, argv[3], true) )
+          for(int i=3; i<argc; i++)
             {
-              FILE *outfile = fopen(argv[3], "wb");
-              if( outfile )
-                {
-                  bool eof = false;
-                  uint8_t buf[128];
-                  while( drive->isFileOk(0) && !eof )
-                    {
-                      size_t n = 128;
-                      if( drive->read(0, buf, &n, &eof) )
-                        {
-                          fwrite(buf, 1, n, outfile);
-                        }
-                      else
-                        {
-                          printf("Error (read): %s\n", drive->getStatusString());
-                          break;
-                        }
-                    }
+              const char *testfile = "\xa0\x20\x20\x20\xa0\x20\xa0\x20";
 
-                  fclose(outfile);
+              printf("Reading file '%s' ...\n", argv[i]);
+              bool ok;
+              if( strcmp(argv[i], "test")==0 )
+                ok = drive->openFile(0, testfile, false);
+              else
+                ok = drive->openFile(0, argv[i], true);
+
+              if( ok )
+                {
+                  FILE *outfile = fopen(argv[i][0]==':' ? argv[i]+1 : argv[i], "wb");
+                  if( outfile )
+                    {
+                      bool eof = false;
+                      uint8_t buf[128];
+                      while( drive->isFileOk(0) && !eof )
+                        {
+                          size_t n = 128;
+                          if( drive->read(0, buf, &n, &eof) )
+                            {
+                              fwrite(buf, 1, n, outfile);
+                            }
+                          else
+                            {
+                              printf("Error (read): %s\n", drive->getStatusString());
+                              break;
+                            }
+                        }
+
+                      fclose(outfile);
+                    }
+                  else
+                    printf("Can not write to local file: %s\n", argv[i]);
+
+                  drive->closeFile(0);
                 }
               else
-                printf("Can not write to local file: %s\n", argv[3]);
-
-              drive->closeFile(0);
+                printf("Error (open): %s\n", drive->getStatusString());
             }
-          else
-            printf("Error (open): %s\n", drive->getStatusString());
         }
-      else if( argc>3 && strcmp(argv[2], "write")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>3 && strcmp(argv[2], "write")==0 )
         {
           FILE *infile = fopen(argv[3], "rb");
           if( infile )
@@ -91,7 +105,7 @@ int main(int argc, char **argv)
           else
             printf("Can not read from local file: %s\n", argv[3]);
         }
-      else if( argc>4 && strcmp(argv[2], "bread")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>4 && strcmp(argv[2], "bread")==0 )
         {
           char cmd[100];
           snprintf(cmd, 100, "U1 2 0,%s,%s", argv[3], argv[4]);
@@ -110,7 +124,25 @@ int main(int argc, char **argv)
 
           printf("Status: %s\n", drive->getStatusString());
         }
-      else if( argc>4 && strcmp(argv[2], "rread")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>4 && strcmp(argv[2], "bmread")==0 )
+        {
+          char buf[100];
+          snprintf(buf, 100, "U1 8 0,%s,%s", argv[3], argv[4]);
+          if( drive->openFile(8, "#2") && drive->execute(buf, strlen(buf)) && drive->execute("M-R\x00\x05\0x00", 6) )
+            {
+              bool eoi = false;
+              while( !eoi )
+                {
+                  size_t len = drive->getStatusBuffer(buf, 40, &eoi);
+                  for(int j=0; j<len; j++) printf("%02X ", (unsigned char) buf[j]);
+                  printf("\n");
+                }
+              drive->closeFile(8);
+            }
+
+          printf("Status: %s\n", drive->getStatusString());
+        }
+      else if( argc>4 && strcmp(argv[2], "rread")==0 )
         {
           int channel = 2;
           if( drive->openFile(channel, argv[3], true) )
@@ -144,7 +176,7 @@ int main(int argc, char **argv)
               drive->closeFile(channel);
             }
         }
-      else if( argc>5 && strcmp(argv[2], "bwrite")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>5 && strcmp(argv[2], "bwrite")==0 )
         {
           if( drive->openFile(2, "#") )
             {
@@ -163,7 +195,7 @@ int main(int argc, char **argv)
 
           printf("Status: %s\n", drive->getStatusString());
         }
-      else if( argc>4 && strcmp(argv[2], "mread")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>4 && strcmp(argv[2], "mread")==0 )
         {
           uint8_t buf[256];
           memcpy(buf, "M-R", 3);
@@ -177,7 +209,17 @@ int main(int argc, char **argv)
           for(int i=0; i<len; i++) printf(" %02X", buf[i]);
           printf("\n");
         }
-      else if( argc>3 && strcmp(argv[2], "@")==0 && drive->openDiskImage(argv[1]) )
+      else if( argc>4 && strcmp(argv[2], "mwrite")==0 )
+        {
+          uint8_t buf[256], len = atoi(argv[4]);
+          memcpy(buf, "M-W", 3);
+          buf[3] = atoi(argv[3])&255;
+          buf[4] = atoi(argv[3])/256;
+          buf[5] = len;
+          for(int i=0; i<len; i++) buf[6+i] = atoi(argv[5+i]);
+          drive->execute((const char *) buf, 6+len);
+        }
+      else if( argc>3 && strcmp(argv[2], "@")==0 )
         {
           drive->execute(argv[3], strlen(argv[3]), true);
           printf("Status: %s\n", drive->getStatusString());
@@ -186,9 +228,40 @@ int main(int argc, char **argv)
         printf("invalid command\n");
     }
 
-  delete drive;
-
   return 0;
 }
+
+
+int main(int argc, char **argv)
+{
+  VDrive *drive = new VDrive(0);
+  
+  char *argv2[10];
+
+  if( argc>1 )
+    {
+      if( !drive->openDiskImage(argv[1]) )
+        printf("Unable to open disk image: %s\n", argv[1]);
+    }
+
+  argv2[0]=argv[0];
+  argv2[1]=argv[1];
+
+  int cmdstart = 2;
+  while( cmdstart<argc )
+    {
+      int i = 0;
+      while( (cmdstart+i)<argc && strcmp(argv[cmdstart+i], ";")!=0 )
+        { argv2[2+i] = argv[cmdstart+i]; i++; }
+
+      main_(drive, 2+i, argv2);
+
+      while( (cmdstart+i)<argc && strcmp(argv[cmdstart+i], ";")==0 ) i++;
+      cmdstart += i;
+    }
+
+  delete drive;
+}
+
 
 #endif

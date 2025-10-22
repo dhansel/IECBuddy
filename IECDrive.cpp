@@ -32,7 +32,7 @@ using namespace std;
 #define min(a,b) ((a)<(b) ? (a) : (b))
 #endif
 
-#ifdef PIN_LED_IS_NEOPIXEL_RGB
+#ifdef PIN_DRIVE_LED_IS_NEOPIXEL_RGB
 #include <Adafruit_NeoPixel.h>
 static Adafruit_NeoPixel s_led(1, 16, NEO_RGB + NEO_KHZ800);
 #define BRIGHTNESS 25
@@ -89,8 +89,9 @@ void IECDrive::begin()
 
   if( m_pinLED<0xFF ) 
     {
-#ifdef PIN_LED_IS_NEOPIXEL_RGB
+#ifdef PIN_DRIVE_LED_IS_NEOPIXEL_RGB
       s_led.setPin(m_pinLED); 
+      s_led.begin();
 #else
       pinMode(m_pinLED, OUTPUT); 
 #endif
@@ -138,7 +139,7 @@ void IECDrive::task()
       else if( millis()>nextblink )
         {
           setLEDState((nextblink&1) ? LED_RED : LED_OFF);
-          nextblink += 251;
+          nextblink += (m_errorCode==E_MEMEXE) ? 101 : 251;
         }
     }
 
@@ -764,29 +765,26 @@ void IECDrive::execute(const char *command, uint8_t len)
       else
         m_errorCode = E_INVCMD;
     }
-  else if( strncmp(command, "M-R\xfe\xff", 5)==0 )
-    {
-      // identify as C1541
-      uint8_t data[3] = {0x67, 0xFE, 0};
-      setStatus((char *) data, 3);
-      m_errorCode = E_OK;
-    }
-  else if( strncmp(command, "M-R\xff\xff", 5)==0 )
-    {
-      // identify as C1541
-      uint8_t data[2] = {0xFE, 0};
-      setStatus((char *) data, 2);
-      m_errorCode = E_OK;
-    }
   else if( strncmp(command, "M-W\x77\x00\x02", 6)==0 )
     {
       // set device number
       m_devnr = command[6] & 0x0F;
       m_errorCode = E_OK;
     }
-  else if( strncmp(command, "M-E", 3)==0 )
+  else if( strncmp(command, "M-E", 3)==0 || strncmp(command, "B-E", 3)==0 || 
+           (command[0]=='U' && command[1]>='3' && command[1]<='8') ||
+           (command[0]=='U' && command[1]>='C' && command[1]<='H') )
     {
       m_errorCode = E_MEMEXE;
+      if( m_pinLED<0xFF )
+        {
+          // block and blink LED for 2 seconds - blinking will continue after
+          // but this should ensure that the user sees the blinking before the
+          // computer sends another command
+          updateDisplayStatus();
+          for(int i=0; i<2*5; i++)
+            { setLEDState(LED_RED); delay(101); setLEDState(LED_OFF); delay(101); }
+        }
     }
   else if( m_drive->isOk() && cdcmd==0 )
     {
@@ -1013,29 +1011,40 @@ const char *IECDrive::getStatusMessage(uint8_t statusCode)
 }
 
 
+uint8_t IECDrive::getStatusData(char *buffer, uint8_t bufferSize, bool *eoi)
+{ 
+  // if we have an active VDrive then just return its status
+  if( m_drive->isOk() )
+    {
+      if( m_errorCode!=E_OK )
+        {
+          m_errorCode = E_OK;
+          updateDisplayStatus();
+        }
+
+      return m_drive->getStatusBuffer(buffer, bufferSize, eoi);
+    }
+
+  // IECFileDevice::getStatusData will in turn call IECSD::getStatus()
+  return IECFileDevice::getStatusData(buffer, bufferSize, eoi);
+}
+
+
 void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
 {
-  if( m_errorCode==E_VDRIVE )
-    {
-      strncpy(buffer, m_drive->getStatusString(), bufferSize);
-      buffer[bufferSize-1] = '\r';
-    }
-  else
-    {
-      const char *message = getStatusMessage(m_errorCode);
-      uint8_t i = 0;
-      buffer[i++] = '0' + (m_errorCode / 10);
-      buffer[i++] = '0' + (m_errorCode % 10);
-      buffer[i++] = ',';
-      strcpy(buffer+i, message);
-      i += strlen(message);
+  const char *message = getStatusMessage(m_errorCode);
+  uint8_t i = 0;
+  buffer[i++] = '0' + (m_errorCode / 10);
+  buffer[i++] = '0' + (m_errorCode % 10);
+  buffer[i++] = ',';
+  strcpy(buffer+i, message);
+  i += strlen(message);
 
-      if( m_errorCode!=E_SCRATCHED ) m_scratched = 0;
-      buffer[i++] = ',';
-      buffer[i++] = '0' + (m_scratched / 10);
-      buffer[i++] = '0' + (m_scratched % 10);
-      strcpy(buffer+i, ",00\r");
-    }
+  if( m_errorCode!=E_SCRATCHED ) m_scratched = 0;
+  buffer[i++] = ',';
+  buffer[i++] = '0' + (m_scratched / 10);
+  buffer[i++] = '0' + (m_scratched % 10);
+  strcpy(buffer+i, ",00\r");
 
   if( m_errorCode!=E_OK )
     {
@@ -1122,7 +1131,7 @@ void IECDrive::setLEDState(int color)
 {
   if( m_pinLED<0xFF ) 
     {
-#ifdef PIN_LED_IS_NEOPIXEL_RGB
+#ifdef PIN_DRIVE_LED_IS_NEOPIXEL_RGB
       switch( color )
         {
         case LED_OFF:   s_led.clear(); break;

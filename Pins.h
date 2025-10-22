@@ -35,9 +35,11 @@
 #endif
 
 // Waveshare RP2040-One board uses an RGB LED on GPIO16
-#if defined(ARDUINO_WAVESHARE_RP2040_ONE)
-#define PIN_LED_IS_NEOPIXEL_RGB
-#define PIN_LED              16
+#if defined(ARDUINO_WAVESHARE_RP2040_ONE) || defined(ARDUINO_GENERIC_RP2350)
+#define PIN_DRIVE_LED_IS_NEOPIXEL_RGB
+#define PIN_DRIVE_LED        16
+#elif defined(PIN_LED)
+#define PIN_DRIVE_LED        PIN_LED
 #endif
 
 // Un-comment PIN_ST7789* to support a ST7789 TFT IPS display
@@ -54,8 +56,8 @@
 // If enabled, the "Adafruit SSD1306" library must be installed in the Arduino IDE
 // GPIO 0/1, 4/5, 8/9,   12/13, 16/17, 20/21 use Wire0
 // GPIO 2/3, 6/7, 10/11, 14/15, 18/19, 27/27 use Wire1
-#define PIN_SSD1306_WIRE     Wire1
-#define PIN_SSD1306_I2C_SDA  26
-#define PIN_SSD1306_I2C_SCL  27
+//#define PIN_SSD1306_WIRE     Wire1
+//#define PIN_SSD1306_I2C_SDA  26
+//#define PIN_SSD1306_I2C_SCL  27
 
 #endif

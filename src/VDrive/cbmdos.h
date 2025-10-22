@@ -162,7 +162,7 @@ const char *cbmdos_errortext(unsigned int code);
 const char *cbmdos_filetype_get(unsigned int filetype);
 
 unsigned int cbmdos_parse_wildcard_check(const char *name, unsigned int len);
-unsigned int cbmdos_parse_wildcard_compare(const uint8_t *name1, const uint8_t *name2);
+unsigned int cbmdos_parse_wildcard_compare(const uint8_t *name1, int name1_length, const uint8_t *name2);
 uint8_t *cbmdos_dir_slot_create(const char *name, unsigned int len);
 
 unsigned int cbmdos_command_parse(cbmdos_cmd_parse_t *cmd_parse);

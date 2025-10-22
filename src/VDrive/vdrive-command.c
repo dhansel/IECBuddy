@@ -3539,7 +3539,7 @@ int vdrive_command_memory_write(vdrive_t *vdrive, const uint8_t *buf, uint16_t a
     }
 
     /* commit the data */
-    for (i = 0; i < len; i++) {
+    for (i = 0; i < len && (addr+i)<DRIVE_RAMSIZE; i++) {
         vdrive->ram[(addr + i) & 0x7fff] = buf[1 + i];
     }
 
@@ -3549,8 +3549,8 @@ int vdrive_command_memory_write(vdrive_t *vdrive, const uint8_t *buf, uint16_t a
         goto out;
     }
 
-    /* support only FD series */
-    if (!VDRIVE_IS_FD(vdrive)) {
+    /* support only FD series and 1541 */
+    if (!VDRIVE_IS_FD(vdrive) && !VDRIVE_IS_1541(vdrive)) {
         goto out;
     }
 
@@ -3742,18 +3742,47 @@ int vdrive_command_memory_read(vdrive_t *vdrive, const uint8_t *buf, uint16_t ad
         len = 256;
     }
 
-    // reading 02FA/02FB should give number of free blocks
-    if( (addr<=0x02FA && addr+len>=0x02FA) || (addr<=0x02FB && addr+len>=0x02FB) )
+    /* move the data */
+    if (VDRIVE_IS_1541(vdrive))
       {
-        unsigned int blocks = vdrive_bam_free_block_count(vdrive);
-        vdrive->ram[0x02FA] = blocks & 255;
-        vdrive->ram[0x02FC] = blocks / 256;
+        // for C1541 emulation:
+
+        // reading 02FA/02FB should give number of free blocks
+        if( (addr<=0x02FA && addr+len>=0x02FA) || (addr<=0x02FB && addr+len>=0x02FB) )
+          {
+            unsigned int blocks = vdrive_bam_free_block_count(vdrive);
+            vdrive->ram[0x02FA] = blocks & 255;
+            vdrive->ram[0x02FC] = blocks / 256;
+          }
+
+        for (i = 0; i < len; i++)
+          {
+            uint16_t a = addr+i;
+
+            // handle ROM addresses commonly used for drive identification
+            if( a<DRIVE_RAMSIZE )
+              p->buffer[i] = vdrive->ram[a];
+            else if( a>=0xE5B7 && a<0xE5C8 )
+              p->buffer[i] = ("\xc3" "BM DOS V2.6 154" "\xb1")[a-0xE5B7];
+            else
+              {
+                switch( a )
+                  {
+                  case 0xFEA0: p->buffer[i] = 0x0D; break;
+                  case 0xFFFE: p->buffer[i] = 0x67; break;
+                  case 0xFFFF: p->buffer[i] = 0xFE; break;
+                  default    : p->buffer[i] = 0xFF; break;
+                  }
+              }
+          }
+      }
+    else
+      {
+        for (i = 0; i < len; i++)
+          p->buffer[i] = addr+i<DRIVE_RAMSIZE ? vdrive->ram[addr+i] : 0xFF;
       }
 
-    /* move the data */
-    for (i = 0; i < len; i++) {
-        p->buffer[i] = vdrive->ram[(addr + i) & 0x7fff];
-    }
+
     /* add a CR at the end */
     p->buffer[i] = 13;
 

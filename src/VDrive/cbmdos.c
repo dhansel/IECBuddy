@@ -77,6 +77,7 @@ static const cbmdos_errortext_t cbmdos_error_messages[] =
     { 70, "NO CHANNEL" },
     { 71, "DIRECTORY ERROR" },
     { 72, "DISK FULL" },
+    //{ 73, "CBM DOS V2.6 1541" },
     { 73, "VIRTUAL DRIVE EMULATION V3.5" }, /* The program version */
     { 74, "DRIVE NOT READY" },
     { 75, "FORMAT ERROR" },
@@ -125,30 +126,29 @@ unsigned int cbmdos_parse_wildcard_check(const char *name, unsigned int len)
     return 0;
 }
 
-unsigned int cbmdos_parse_wildcard_compare(const uint8_t *name1, const uint8_t *name2)
+unsigned int cbmdos_parse_wildcard_compare(const uint8_t *pattern, int pattern_length, const uint8_t *dirname)
 {
     unsigned int index;
 
-    for (index = 0; index < CBMDOS_SLOT_NAME_LENGTH; index++) {
-        switch (name1[index]) {
-            case '*':
-                return 1; /* rest is not interesting, it's a match */
-            case '?':
-                if (name2[index] == 0xa0) {
-                    return 0; /* wildcard, but the other is too short */
-                }
-                break;
-            case 0xa0: /* This one ends, let's see if the other as well */
-                return (name2[index] == 0xa0);
-            default:
-                if (name1[index] != name2[index]) {
-                    return 0; /* does not match */
-                }
-        }
-    }
+    /* modeled after code in C1541 ROM at $C50A */
+    for(index=0; index<CBMDOS_SLOT_NAME_LENGTH; index++)
+      {
+        if( index >= pattern_length )
+          return dirname[index]==0xA0;
+        else if( pattern[index]=='*' )
+          return 1;
 
-    return 1; /* matched completely */
+        if( pattern[index]!=dirname[index] ) {
+          if( pattern[index]!='?' )
+            return 0;
+          else if( dirname[index]!=0xA0 )
+            return 0;
+        }
+      }
+
+    return 1;
 }
+
 
 uint8_t *cbmdos_dir_slot_create(const char *name, unsigned int len)
 {
@@ -403,7 +403,9 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                 /* wait for numbers to appear */
                 if (special) {
                     /* compensate for CMD $*=P and $*=T syntax */
-                    if (*p == '$' && (p + 2) < limit && *(p + 1) == '='
+                    if( *p == '#' && p+1<limit && *(p+1)>='0' && *(p+1)<='9' ) {
+                        p++;
+                    } else if (*p == '$' && (p + 2) < limit && *(p + 1) == '='
                         && (*(p + 2) == 'P' || *(p + 2) == 'T') ) {
                         p += 2;
                     } else if (!p2 && *p == '$' && (p + 1) < limit
@@ -552,7 +554,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
             special++;
             if (p + 1 < limit) {
                 if (p[0] == 'U'
-                    && (p[1] == '1' || p[1] == 'A' || p[1] == '2' || p[1] == 'B')) {
+                    && (p[1] == '1' || p[1] == 0x01 || p[1] == 'A' || p[1] == '2' || p[1] == 0x02 || p[1] == 'B')) {
                     special = 0;
                 }
                 if (p[0] == 'M' && p[1] == 'D') {
@@ -624,7 +626,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                     break;
                 }
                 /* get out the moment we see a delimiter */
-                if (*p == ':' || *p == ' ' || *p == 29 ) {
+                if (*p == ':' || *p == ' ' || *p == 29 || (special && *p == ',') ) {
                     break;
                 }
                 if (!special) {
@@ -639,7 +641,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                     break;
                 }
                 /* get out the moment we see a delimiter */
-                if (*p == ':' || *p == ' ' || *p == 29 ) {
+                if (*p == ':' || *p == ' ' || *p == 29 || (special && *p == ',') ) {
                     break;
                 }
                 if (!special) {
@@ -657,6 +659,12 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
             cmd_parse->abbrv = lib_calloc(1, cmd_parse->abbrvlength + 1);
             memcpy(cmd_parse->abbrv, temp, cmd_parse->abbrvlength);
             cmd_parse->abbrv[cmd_parse->abbrvlength] = 0;
+
+            if( (cmd_parse->commandlength>1) && (cmd_parse->command[0])=='U' && cmd_parse->command[1]>=0x01 && cmd_parse->command[1]<=0x09 )
+              cmd_parse->command[1] += '0';
+
+            if( special && *p == ',' )
+              p++;
         }
 
         if (p >= limit) {

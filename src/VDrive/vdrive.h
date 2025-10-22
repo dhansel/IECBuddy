@@ -38,6 +38,7 @@
 #define VDRIVE_PART_SUPPORTED(a) (vdrive->ptype[a]>=1 && vdrive->ptype[a]<=4)
 #define VDRIVE_IS_FD(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_D1M || a->image->type == DISK_IMAGE_TYPE_D2M || a->image->type == DISK_IMAGE_TYPE_D4M ))
 #define VDRIVE_IS_HD(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_DHD))
+#define VDRIVE_IS_1541(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_D64 || DISK_IMAGE_TYPE_G64 ))
 #define VDRIVE_IS_READONLY(a) (a->image_mode > 0)
 
 /* High level disk formats.
@@ -72,7 +73,7 @@
         *((p)++) = ((val) >> 8) & 0xff; \
     } while (0)
 
-#define DRIVE_RAMSIZE           0x400
+#define DRIVE_RAMSIZE           0x800
 
 #define BAM_MAXSIZE (VDRIVE_BAM_MAX_STATES * 256)
 
@@ -194,7 +195,7 @@ typedef struct vdrive_s {
     /* removed side sector data and placed it in buffer structure */
     /* BYTE *side_sector; */
 
-    uint8_t ram[0x8000];
+    uint8_t ram[DRIVE_RAMSIZE];
 } vdrive_t;
 
 /* Actually, serial-code errors ... */
@@ -241,7 +242,7 @@ int vdrive_get_max_sectors_per_head(vdrive_t *vdrive, unsigned int track);
 void vdrive_get_last_read(unsigned int *track, unsigned int *sector, uint8_t **buffer);
 void vdrive_set_last_read(unsigned int track, unsigned int sector, uint8_t *buffer);
 
-void vdrive_alloc_buffer(struct bufferinfo_s *p, int mode);
+void vdrive_alloc_buffer(vdrive_t *vdrive, struct bufferinfo_s *p, int bufnum, int mode);
 void vdrive_free_buffer(struct bufferinfo_s *p);
 void vdrive_set_disk_geometry(vdrive_t *vdrive);
 int vdrive_read_sector(vdrive_t *vdrive, uint8_t *buf, unsigned int track, unsigned int sector);

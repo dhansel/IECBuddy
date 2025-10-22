@@ -77,8 +77,9 @@ class VDrive
   const char *getStatusString();
 
   // copies the contents of the drive's status buffer to "buf", not exceeding
-  // the given bufSize length.
-  size_t getStatusBuffer(void *buf, size_t bufSize);
+  // the given bufSize length. If given, "eoi" will be set to true/false
+  // depending on whether all information from the buffer has been read
+  size_t getStatusBuffer(void *buf, size_t bufSize, bool *eoi = NULL);
 
   // read sector data from the disk image and place it in "buf"
   // "buf" must have a size of at least 256 bytes

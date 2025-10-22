@@ -270,8 +270,4 @@ void archdep_exit(int excode)
   exit(0);
 }
 
-void archdep_flush_memcache(ADFILE *f)
-{
-}
-
 #endif
