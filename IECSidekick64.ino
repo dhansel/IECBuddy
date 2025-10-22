@@ -62,7 +62,7 @@ static uint32_t getFreeHeap()
 #define DEVICE_NUMBER  8
 
 IECConfig   iecConfig;
-IECDrive    iecDrive(DEVICE_NUMBER, PIN_BUSLED);
+IECDrive    iecDrive(DEVICE_NUMBER, PIN_DRIVE_LED);
 IECPrinter  iecPrinter(4, PRINTDATAFILE);
 IECDisplay *iecDisplay = NULL;
 
