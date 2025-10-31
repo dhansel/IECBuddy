@@ -159,6 +159,13 @@ static int iec_open_read(vdrive_t *vdrive, unsigned int secondary)
     track = (unsigned int)slot[SLOT_FIRST_TRACK];
     sector = (unsigned int)slot[SLOT_FIRST_SECTOR];
 
+    /* on 1541, store track/sector in 0x7E and 0x026F so LOAD"*",8 can refer back to this file */
+    if( VDRIVE_IS_1541(vdrive) )
+      {
+        vdrive->ram[0x007E] = track;
+        vdrive->ram[0x026F] = sector;
+      }
+
     /* we can not open files that were not properly closed ("splat files") */
     if (slot[SLOT_TYPE_OFFSET] & 0x80) {
         /* Del, Seq, Prg, Usr (Rel not supported here).  */
@@ -634,6 +641,14 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
         p->partstart = vdrive->Part_Start;
         p->partend = vdrive->Part_End;
     }
+
+    /* if file name is '*' and there is a previously loaded program (i.e. 0x7E in RAM is >0) then load that */
+    if( VDRIVE_IS_1541(vdrive) && cmd_parse->readmode == CBMDOS_FAM_READ && length==1 && name[0] == '*' && vdrive->ram[0x7E]>0 )
+      {
+        p->readmode = CBMDOS_FAM_READ;
+        status = iec_open_read_sequential(vdrive, secondary, vdrive->ram[0x007E], vdrive->ram[0x026F]);
+        goto out;
+      }
 
     /*
      * Directory read

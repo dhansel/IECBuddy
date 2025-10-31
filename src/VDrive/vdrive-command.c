@@ -3522,7 +3522,7 @@ int vdrive_command_set_error(vdrive_t *vdrive, int code, unsigned int track,
 int vdrive_command_memory_write(vdrive_t *vdrive, const uint8_t *buf, uint16_t addr, unsigned int length)
 {
     unsigned int len = buf[0];
-    int i, job;
+    int i, job, res;
     int jobs = 0, tracksector = 0, maxjobs = 0;
     unsigned int type = 0;
 
@@ -3613,11 +3613,8 @@ int vdrive_command_memory_write(vdrive_t *vdrive, const uint8_t *buf, uint16_t a
 log_warning(LOG_DEFAULT,"job #%d read sector %u %u",i,(unsigned int)vdrive->ram[tracksector + (i << 1)], (unsigned int)vdrive->ram[tracksector + (i << 1) + 1]);
 #endif
                     vdrive_switch(vdrive, vdrive->selected_part);
-                    if (vdrive_read_sector(vdrive, &(vdrive->ram[0x300 + (i << 8)]), vdrive->ram[tracksector + (i << 1)], vdrive->ram[tracksector + (i << 1) + 1])) {
-                        vdrive->ram[jobs + i] = 5;
-                    } else {
-                        vdrive->ram[jobs + i] = 0;
-                    }
+                    res = vdrive_read_sector(vdrive, &(vdrive->ram[0x300 + (i << 8)]), vdrive->ram[tracksector + (i << 1)], vdrive->ram[tracksector + (i << 1) + 1]);
+                    vdrive->ram[jobs + i] = cbmdos_error_to_fdc_error(res);
                     break;
 
                 case 0x90:
@@ -3626,11 +3623,8 @@ log_warning(LOG_DEFAULT,"job #%d write sector %u %u",i,(unsigned int)vdrive->ram
 #endif
                     if (!VDRIVE_IS_READONLY(vdrive)) {
                         vdrive_switch(vdrive, vdrive->selected_part);
-                        if (vdrive_write_sector(vdrive, &(vdrive->ram[0x300 + (i << 8)]), vdrive->ram[tracksector + (i << 1)], vdrive->ram[tracksector + (i << 1) + 1])) {
-                            vdrive->ram[jobs + i] = 7;
-                        } else {
-                            vdrive->ram[jobs + i] = 0;
-                        }
+                        res = vdrive_write_sector(vdrive, &(vdrive->ram[0x300 + (i << 8)]), vdrive->ram[tracksector + (i << 1)], vdrive->ram[tracksector + (i << 1) + 1]);
+                        vdrive->ram[jobs + i] = cbmdos_error_to_fdc_error(res);
                     } else {
                         vdrive->ram[jobs + i] = 8;
                     }

@@ -739,3 +739,71 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
 
     return CBMDOS_IPE_OK;
 }
+
+
+int cbmdos_fdc_error_to_cbmdos_error(fdc_err_t rf)
+{
+  switch (rf)
+    {
+    case CBMDOS_FDC_ERR_OK:
+      return CBMDOS_IPE_OK;
+    case CBMDOS_FDC_ERR_HEADER:
+      return CBMDOS_IPE_READ_ERROR_BNF; /* 20 */
+    case CBMDOS_FDC_ERR_SYNC:
+      return CBMDOS_IPE_READ_ERROR_SYNC; /* 21 */
+    case CBMDOS_FDC_ERR_NOBLOCK:
+      return CBMDOS_IPE_READ_ERROR_DATA; /* 22 */
+    case CBMDOS_FDC_ERR_DCHECK:
+      return CBMDOS_IPE_READ_ERROR_CHK; /* 23 */
+    case CBMDOS_FDC_ERR_VERIFY:
+      return CBMDOS_IPE_WRITE_ERROR_VER; /* 25 */
+    case CBMDOS_FDC_ERR_WPROT:
+      return CBMDOS_IPE_WRITE_PROTECT_ON; /* 26 */
+    case CBMDOS_FDC_ERR_HCHECK:
+      return CBMDOS_IPE_READ_ERROR_BCHK; /* 27 */
+    case CBMDOS_FDC_ERR_BLENGTH:
+      return CBMDOS_IPE_WRITE_ERROR_BIG; /* 28 */
+    case CBMDOS_FDC_ERR_ID:
+      return CBMDOS_IPE_DISK_ID_MISMATCH; /* 29 */
+    case CBMDOS_FDC_ERR_DRIVE:
+      return CBMDOS_IPE_NOT_READY;    /* 74 */
+    case CBMDOS_FDC_ERR_DECODE:
+      return CBMDOS_IPE_READ_ERROR_GCR; /* 24 */
+    default:
+      return CBMDOS_IPE_NOT_READY;
+    }
+}
+
+
+fdc_err_t cbmdos_error_to_fdc_error(int rf)
+{
+  switch (rf)
+    {
+    case CBMDOS_IPE_OK:
+      return CBMDOS_FDC_ERR_OK;
+    case CBMDOS_IPE_READ_ERROR_BNF: /* 20 */
+      return CBMDOS_FDC_ERR_HEADER;
+    case CBMDOS_IPE_READ_ERROR_SYNC: /* 21 */
+      return CBMDOS_FDC_ERR_SYNC;
+    case CBMDOS_IPE_READ_ERROR_DATA: /* 22 */
+      return CBMDOS_FDC_ERR_NOBLOCK;
+    case CBMDOS_IPE_READ_ERROR_CHK: /* 23 */
+      return CBMDOS_FDC_ERR_DCHECK;
+    case CBMDOS_IPE_WRITE_ERROR_VER: /* 25 */
+      return CBMDOS_FDC_ERR_VERIFY;
+    case CBMDOS_IPE_WRITE_PROTECT_ON: /* 26 */
+      return CBMDOS_FDC_ERR_WPROT;
+    case CBMDOS_IPE_READ_ERROR_BCHK: /* 27 */
+      return CBMDOS_FDC_ERR_HCHECK;
+    case CBMDOS_IPE_WRITE_ERROR_BIG: /* 28 */
+      return CBMDOS_FDC_ERR_BLENGTH;
+    case CBMDOS_IPE_DISK_ID_MISMATCH: /* 29 */
+      return CBMDOS_FDC_ERR_ID;
+    case CBMDOS_IPE_NOT_READY:    /* 74 */
+      return CBMDOS_FDC_ERR_DRIVE;
+    case CBMDOS_IPE_READ_ERROR_GCR: /* 24 */
+      return CBMDOS_FDC_ERR_DECODE;
+    default:
+      return CBMDOS_FDC_ERR_DRIVE;
+    }
+}

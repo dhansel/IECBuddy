@@ -546,6 +546,7 @@ disk_image_t *disk_image_create(void)
 {
     disk_image_t *image = lib_malloc(sizeof *image);
     image->p64 = NULL;
+    image->id = 0xFFFFFFFF;
     return image;
 }
 

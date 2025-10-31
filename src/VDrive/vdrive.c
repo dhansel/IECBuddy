@@ -80,6 +80,12 @@ void vdrive_init(void)
     vdrive_rel_init();
 }
 
+static int mem_is_within_drive_ram(vdrive_t *vdrive, uint8_t *p)
+{
+  return p>=vdrive->ram && p<(vdrive->ram+DRIVE_RAMSIZE);
+}
+
+
 /* ------------------------------------------------------------------------- */
 /*
     allocate/free buffers. these functions should somewhat mimic the behaviour
@@ -100,15 +106,23 @@ void vdrive_alloc_buffer(vdrive_t *vdrive, bufferinfo_t *p, int bufnum, int mode
     size_t size = 256;
 
     if( bufnum>=0 && bufnum<5 && (0x0300+256*bufnum)<DRIVE_RAMSIZE  )
-      p->buffer = vdrive->ram + 0x0300 + 256*bufnum;
-    else if (p->buffer == NULL) {
+      {
+        /* requested buffer is within drive RAM, if previous buffer mem was allocated
+           then free it, then set buffer start into drive RAM */
+        if( p->buffer!=NULL && !mem_is_within_drive_ram(vdrive, p->buffer) ) free(p->buffer);
+        p->buffer = vdrive->ram + 0x0300 + 256*bufnum;
+      }
+    else if( p->buffer==NULL || mem_is_within_drive_ram(vdrive, p->buffer) )
+      {
         /* first time actually allocate memory, and clear it */
         p->buffer = lib_malloc(size);
         memset(p->buffer, 0, size);
-    } else {
+      }
+    else
+      {
         /* any other time, just adjust the size of the buffer */
         p->buffer = lib_realloc(p->buffer, size);
-    }
+      }
     p->mode = mode;
 }
 
@@ -170,7 +184,7 @@ void vdrive_device_shutdown(vdrive_t *vdrive)
         for (i = 0; i < 16; i++) {
             p = &(vdrive->buffers[i]);
             vdrive_free_buffer(p);
-            if( p->buffer!=NULL && (p->buffer < vdrive->ram  || p->buffer > (vdrive->ram+DRIVE_RAMSIZE)) )
+            if( p->buffer!=NULL && mem_is_within_drive_ram(vdrive, p->buffer) )
               lib_free(p->buffer);
             p->buffer = NULL;
         }
@@ -576,6 +590,13 @@ int vdrive_attach_image(disk_image_t *image, unsigned int unit,
         /* all good, set selected partition */
         vdrive->selected_part = vdrive->current_part;
     }
+
+    /* reset "last file" pointers for 1541 */
+    if( VDRIVE_IS_1541(vdrive) )
+      {
+        vdrive->ram[0x007E] = 0; // track
+        vdrive->ram[0x026F] = 0; // sector
+      }
 
 #if 0
     /* read whole bam to ensure image is good */

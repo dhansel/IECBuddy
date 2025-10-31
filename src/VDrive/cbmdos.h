@@ -168,4 +168,7 @@ uint8_t *cbmdos_dir_slot_create(const char *name, unsigned int len);
 unsigned int cbmdos_command_parse(cbmdos_cmd_parse_t *cmd_parse);
 unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse);
 
+int cbmdos_fdc_error_to_cbmdos_error(fdc_err_t rf);
+fdc_err_t cbmdos_error_to_fdc_error(int rf);
+
 #endif

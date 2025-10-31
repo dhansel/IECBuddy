@@ -98,6 +98,7 @@ struct disk_image_s {
     unsigned int tracks;
     unsigned int sectors; /* for D9090/D9060 */
     unsigned int max_half_tracks;
+    unsigned int id;
     struct gcr_s *gcr;
     TP64Image *p64;
 };
