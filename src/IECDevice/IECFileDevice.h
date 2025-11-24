@@ -36,8 +36,9 @@ class IECFileDevice : public IECDevice
   // called during IECBusHandler::task()
   virtual void task();
 
-  // open file "name" on channel
-  virtual bool open(uint8_t channel, const char *name) = 0;
+  // open file "name" on channel, the file name will be zero-terminated but
+  // nameLen can also be used, especially if the file name contains NUL characters
+  virtual bool open(uint8_t channel, const char *name, uint8_t nameLen) = 0;
 
   // close file on channel
   virtual void close(uint8_t channel) = 0;
@@ -71,11 +72,22 @@ class IECFileDevice : public IECDevice
   // The default implementation of getStatusData just calls getStatus().
   virtual uint8_t getStatusData(char *buffer, uint8_t bufferSize, bool *eoi);
 
+  // called when the bus master sends data (e.g. a command) to channel 15
+  // data is a pointer to the buffer containing the received data,
+  // len contains the length of the received data.
+  // If this function is NOT overloaded in a derived class then the
+  // text-based "execute()" function (see below) will be called.
+  // Overload this funcion if your device executes commands that may contain
+  // binary data.
+  virtual void executeData(const uint8_t *data, uint8_t len);
+
   // called when the bus master sends data (i.e. a command) to channel 15
-  // command is a 0-terminated string representing the command to execute
-  // commandLen contains the full length of the received command (useful if
-  // the command itself may contain zeros)
-  virtual void execute(const char *command, uint8_t cmdLen) {}
+  // and the aboce "execute(command, cmdLen)" is NOT overloaded.
+  // command is a 0-terminated string representing the command to execute,
+  // trailing CRs ($13) are stripped off.
+  // Overload this function if all commands sent to your device are text-based
+  // and do not contain biary data such as NUL or CR characters.
+  virtual void execute(const char *command) {}
 
   // called on falling edge of RESET line
   virtual void reset();
@@ -114,6 +126,7 @@ class IECFileDevice : public IECDevice
   void fillReadBuffer();
   void emptyWriteBuffer();
   void fileTask();
+  bool isFastLoaderRequest(const char *cmd);
   bool checkMWcmd(uint16_t addr, uint8_t len, uint8_t checksum) const;
   bool checkMWcmds(const struct MWSignature *sig, uint8_t sigLen, uint8_t offset);
 

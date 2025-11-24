@@ -171,13 +171,13 @@ void execDriveCommand()
       Serial1.printf("command: %s\r\n", cmd.c_str());
 #endif
       if( iecDrive.getMountedImageName()==NULL )
-        iecDrive.execute(cmd.c_str(), cmd.length());
+        iecDrive.execute(cmd.c_str());
       else
         {
           // execute command on SD card (not in currently mounted image)
           string imageName(iecDrive.getMountedImageName());
           iecDrive.unmountDiskImage();
-          iecDrive.execute(cmd.c_str(), cmd.length());
+          iecDrive.execute(cmd.c_str());
           iecDrive.mountDiskImage(imageName.c_str());
         }
 

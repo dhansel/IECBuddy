@@ -29,24 +29,16 @@ extern "C"
 #define F_CANTWRITE   0x08
 
 
-static uint32_t getTotalHeap()
+uint32_t archdep_get_available_heap()
 {
+#ifdef ARDUINO_ARCH_RP2040
   extern char __StackLimit, __bss_end__;
-  return &__StackLimit - &__bss_end__;
-}
-
-
-static uint32_t getUsedHeap()
-{
   struct mallinfo m = mallinfo();
-  return m.uordblks;
+  return (&__StackLimit - &__bss_end__) - m.uordblks;
+#else
+  return 0;
+#endif
 }
-
-static uint32_t getAvailableHeap()
-{
-  return getTotalHeap() - getUsedHeap();
-}
-
 
 #define MAXFILES 3
 #define MEM_CHUNK_SIZE 4096
@@ -62,13 +54,13 @@ static void image_free()
 {
   if( s_imageData!=NULL )
     {
-      DBG(("heap_avail: %u\n", getAvailableHeap()));
+      DBG(("heap_avail: %u\n", archdep_get_available_heap()));
       DBG(("image_free: freeing %u chunks of %u...\n", s_imageDataChunks, MEM_CHUNK_SIZE));
       for(uint32_t i=0; i<s_imageDataChunks; i++) free(s_imageData[i]);
       free(s_imageData);
       s_imageData = NULL;
       s_imageDataChunks = 0;
-      DBG(("heap_avail: %u\n", getAvailableHeap()));
+      DBG(("heap_avail: %u\n", archdep_get_available_heap()));
     }
 }
 
@@ -79,7 +71,7 @@ static bool image_alloc(size_t numBytes)
   s_imageDataChunks = numBytes / (MEM_CHUNK_SIZE);
   if( numBytes / (MEM_CHUNK_SIZE) > 0 ) s_imageDataChunks++;
 
-  DBG(("\nheap_avail: %u\n", getAvailableHeap()));
+  DBG(("\nheap_avail: %u\n", archdep_get_available_heap()));
   DBG(("image_alloc: allocating %u bytes in %u chunks of %u...", numBytes, s_imageDataChunks, MEM_CHUNK_SIZE));
 
   s_imageData = (uint8_t **) malloc(sizeof(uint8_t *) * s_imageDataChunks );
@@ -100,7 +92,7 @@ static bool image_alloc(size_t numBytes)
     }
 
   if( s_imageData!=NULL ) { DBG(("ok\n", 0)); } else { DBG(("FAIL!\n", 0)); }
-  DBG(("heap_avail: %u\n", getAvailableHeap()));
+  DBG(("heap_avail: %u\n", archdep_get_available_heap()));
 
   return s_imageData!=NULL;
 }
@@ -331,7 +323,7 @@ File getFile(ADFILE *f, bool write = false)
 #if 0
       DBG(("\nHeap total : %u", getTotalHeap()));
       DBG(("\nHeap used  : %u", getUsedHeap()));
-      DBG(("\nHeap avail : %u", getAvailableHeap()));
+      DBG(("\nHeap avail : %u", archdep_get_available_heap()));
 #endif
       
       if( image_alloc(size) )
@@ -356,7 +348,7 @@ File getFile(ADFILE *f, bool write = false)
         }
       else
         {
-          DBG(("getFile: file '%s' of size %u can't fit into memory (heap available=%u)", file.fullName(), size, getAvailableHeap()));
+          DBG(("getFile: file '%s' of size %u can't fit into memory (heap available=%u)", file.fullName(), size, archdep_get_available_heap()));
           s_lfsFilesFlags[fidx] |= F_CANTBUFFER;
           file.seek(pos, SeekSet);
         }
@@ -455,7 +447,7 @@ int archdep_access(const char *pathname, int mode)
 
       // according to https://github.com/littlefs-project/littlefs/issues/533
       // LittleFS requires ~6 blocks of free storage space to work with
-      if( LittleFS.stat(pathname, &stat) && LittleFS.info(info) && (stat.size < (info.totalBytes-info.usedBytes-6*info.blockSize) || stat.size < (getAvailableHeap()-1024)) )
+      if( LittleFS.stat(pathname, &stat) && LittleFS.info(info) && (stat.size < (info.totalBytes-info.usedBytes-6*info.blockSize) || stat.size < (archdep_get_available_heap()-1024)) )
         res = 0;
       else
         res = -1;

@@ -201,7 +201,7 @@ int VDrive::getFileNumBlocks(const char *name, bool convertNameToPETSCII)
 }
 
 
-bool VDrive::openFile(uint8_t channel, const char *name, bool convertNameToPETSCII)
+bool VDrive::openFile(uint8_t channel, const char *name, int nameLen, bool convertNameToPETSCII)
 {
   bool res = false;
 
@@ -210,15 +210,17 @@ bool VDrive::openFile(uint8_t channel, const char *name, bool convertNameToPETSC
   if( m_drive->buffers[channel].mode!=BUFFER_NOT_IN_USE )
     closeFile(channel);
 
+  if( nameLen<0 ) nameLen = strlen(name);
+
   if( convertNameToPETSCII )
     {
       char *pname = lib_strdup(name);
       charset_petconvstring((uint8_t *)pname, CONVERT_TO_PETSCII);
-      res = vdrive_iec_open(m_drive, (uint8_t *) pname, (unsigned int) strlen(pname), channel, NULL)==0;
+      res = vdrive_iec_open(m_drive, (uint8_t *) pname, (unsigned int) nameLen, channel, NULL)==0;
       lib_free(pname);
     }
   else
-    res = vdrive_iec_open(m_drive, (uint8_t *) name, (unsigned int) strlen(name), channel, NULL)==0;
+    res = vdrive_iec_open(m_drive, (uint8_t *) name, (unsigned int) nameLen, channel, NULL)==0;
 
   countOpenChannels();
   return res;

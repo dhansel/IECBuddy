@@ -23,7 +23,8 @@ class IECDrive : public IECFileDevice
 
   virtual void getStatus(char *buffer, uint8_t bufferSize);
   virtual uint8_t getStatusData(char *buffer, uint8_t bufferSize, bool *eoi);
-  virtual void execute(const char *command, uint8_t len);
+  virtual void executeData(const uint8_t *data, uint8_t len);
+  virtual void execute(const char *command);
 
   void unmountDiskImage();
   bool mountDiskImage(const char *name);
@@ -37,7 +38,7 @@ class IECDrive : public IECFileDevice
   virtual void begin();
   virtual void task();
 
-  virtual bool open(uint8_t channel, const char *name);
+  virtual bool open(uint8_t channel, const char *name, uint8_t nameLen);
   virtual uint8_t read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi);
   virtual uint8_t write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi);
   virtual void close(uint8_t channel);

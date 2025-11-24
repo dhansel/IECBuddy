@@ -1575,4 +1575,8 @@ void vdrive_bam_setup_bam(vdrive_t *vdrive)
             log_error(LOG_DEFAULT, "Unknown disk type %u.  Cannot locate BAM.",
                     vdrive->image_format);
     }
+
+  // 1541 has disk id in RAM at $12
+  if( VDRIVE_IS_1541(vdrive) )
+    vdrive_bam_int_get_disk_id(vdrive, vdrive->ram + 0x12);
 }

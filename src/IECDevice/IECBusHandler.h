@@ -81,7 +81,7 @@ class IECBusHandler
   static uint8_t getSupportedFastLoaders();
   static bool isFastLoaderSupported(uint8_t loader);
   bool enableFastLoader(IECDevice *dev, uint8_t protocol, bool enable);
-  void fastLoadRequest(uint8_t loader, uint8_t request);
+  void fastLoadRequest(IECDevice *dev, uint8_t loader, uint8_t request);
 
 #ifdef IEC_FP_DOLPHIN
   void enableDolphinBurstMode(IECDevice *dev, bool enable);
@@ -236,9 +236,9 @@ class IECBusHandler
 #endif
   
 #ifdef IEC_FP_AR6
-  bool transmitAR6Byte(uint8_t data);
+  bool transmitAR6Byte(uint8_t data, bool ar6Protocol);
   bool receiveAR6Byte(uint8_t *data);
-  int8_t transmitAR6Block();
+  int8_t transmitAR6Block(bool ar6Protocol);
   int8_t receiveAR6Block();
 #endif
   

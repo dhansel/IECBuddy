@@ -423,7 +423,7 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
     cbmdos_cmd_parse_plus_t *cmd_parse = &cmd_parse_stat;
 
     if (cmd_parse_ext == NULL) {
-        if ( (!name || !*name) && p->mode != BUFFER_COMMAND_CHANNEL) {
+        if ( name==NULL && p->mode != BUFFER_COMMAND_CHANNEL) {
             return SERIAL_NO_DEVICE;
         }
     } else {
@@ -574,6 +574,10 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
         status = SERIAL_ERROR;
         goto out;
     }
+
+    /* 1541 ignores drive argument in file name */
+    if( cmd_parse->drive != 0 && VDRIVE_IS_1541(vdrive) )
+      cmd_parse->drive = 0;
 
 #if 0
     if (cmd_parse->drive != 0) {
@@ -1036,14 +1040,21 @@ int vdrive_iec_read(vdrive_t *vdrive, uint8_t *data, unsigned int secondary)
             return SERIAL_ERROR | SERIAL_EOF;
 
         case BUFFER_MEMORY_BUFFER:
+          if( vdrive->mem_buf_next_byte_override < 0 )
             *data = p->buffer[p->bufptr];
-            p->bufptr++;
-            if (p->bufptr >= p->length) {
-                /* Buffer pointer resets to 1, not 0. */
-                p->bufptr = 1;
-                status = SERIAL_EOF;
+          else
+            {
+              *data = vdrive->mem_buf_next_byte_override;
+              vdrive->mem_buf_next_byte_override = -1;
             }
-            break;
+
+          p->bufptr++;
+          if (p->bufptr >= p->length) {
+            /* Buffer pointer resets to 1, not 0. */
+            p->bufptr = 1;
+            status = SERIAL_EOF;
+          }
+          break;
 
         case BUFFER_DIRECTORY_READ:
         case BUFFER_PARTITION_READ:

@@ -136,6 +136,8 @@ const char *archdep_readdir(archdep_dir_t *dir);
 void archdep_closedir(archdep_dir_t *dir);
 void archdep_flush_memcache(ADFILE *f);
 
+uint32_t archdep_get_available_heap();
+
 #ifdef __cplusplus
 }
 #endif

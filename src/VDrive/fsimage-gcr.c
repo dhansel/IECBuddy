@@ -175,30 +175,37 @@ int fsimage_gcr_read_half_track(const disk_image_t *image, unsigned int half_tra
 
         /* the following can be #if 0'd to skip looking for actual track number */
 #if 1
-        /* read track number in first header found on this track */
-        uint8_t track;
-        fdc_err_t rf = gcr_read_track_number(raw, &track);
-
-        /* if a header was found and track number is different from expected
-           then set next_half_track to where we expect the actual track */
-        unsigned int next_half_track;
-        if( rf==CBMDOS_FDC_ERR_OK )
-          next_half_track = half_track + ((int) half_track - (int) 2*track);
-        else
-          next_half_track = half_track;
-
-        /* if next_half_track does not match half_track then repeat the loop
-           to read next_half_track */
-        if( next_half_track!=half_track && next_half_track!=orig_half_track )
+        static int current_half_track = -1;
+        if( half_track != current_half_track )
           {
-            log_error(fsimage_gcr_log,
-                      "Track number mismatch: expected %u, found %u, now reading track %u.",
-                      half_track/2, track, next_half_track/2);
+            uint8_t track;
 
-            half_track = next_half_track;
-            lib_free(raw->data);
-            raw->data = NULL;
-            raw->size = 0;
+            /* read track number in first header found on this track */
+            fdc_err_t rf = gcr_read_track_number(raw, &track);
+            
+            /* if a header was found and track number is different from expected
+               then set next_half_track to where we expect the actual track */
+            unsigned int next_half_track;
+            if( rf==CBMDOS_FDC_ERR_OK )
+              next_half_track = half_track + ((int) half_track - (int) 2*track);
+            else
+              next_half_track = half_track;
+            
+            /* if next_half_track does not match half_track then repeat the loop
+               to read next_half_track */
+            if( next_half_track!=half_track && next_half_track!=orig_half_track )
+              {
+                log_error(fsimage_gcr_log,
+                          "Track number mismatch: expected %u, found %u, now reading track %u.",
+                          half_track/2, track, next_half_track/2);
+                
+                half_track = next_half_track;
+                lib_free(raw->data);
+                raw->data = NULL;
+                raw->size = 0;
+              }
+            else
+              current_half_track = half_track;
           }
 #endif
       }

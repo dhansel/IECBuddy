@@ -415,7 +415,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                     }
                     p++;
                 } else {
-                    while (p < limit && (*p < '0' || *p > '9')) {
+                    while (p <= p2 && (*p < '0' || *p > '9')) {
                         p++;
                     }
                 }
@@ -524,7 +524,8 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                         cmd_parse->readmode = CBMDOS_FAM_APPEND;
                         break;
                     default:
-                        return CBMDOS_IPE_INVAL;
+                      { /* CBM DOS just ignores invalid characters, not an error
+                           return CBMDOS_IPE_INVAL; */ }
                 }
                 p++;
                 /* skip extra characters after first ','; ",sequential,write" is allowed for example */
@@ -626,7 +627,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                     break;
                 }
                 /* get out the moment we see a delimiter */
-                if (*p == ':' || *p == ' ' || *p == 29 || (special && *p == ',') ) {
+                if (*p == ':' || *p == ' ' || *p == 29 || (special && (*p == ',' || *p==';')) ) {
                     break;
                 }
                 if (!special) {
@@ -641,7 +642,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
                     break;
                 }
                 /* get out the moment we see a delimiter */
-                if (*p == ':' || *p == ' ' || *p == 29 || (special && *p == ',') ) {
+                if (*p == ':' || *p == ' ' || *p == 29 || (special && (*p == ',' || *p==';')) ) {
                     break;
                 }
                 if (!special) {
@@ -663,7 +664,7 @@ unsigned int cbmdos_command_parse_plus(cbmdos_cmd_parse_plus_t *cmd_parse)
             if( (cmd_parse->commandlength>1) && (cmd_parse->command[0])=='U' && cmd_parse->command[1]>=0x01 && cmd_parse->command[1]<=0x09 )
               cmd_parse->command[1] += '0';
 
-            if( special && *p == ',' )
+            if( special && (*p == ',' || *p == ';') )
               p++;
         }
 

@@ -303,11 +303,15 @@ int vdrive_command_execute(vdrive_t *vdrive, const uint8_t *buf,
                         goto out;
 
                     case 'J': /* UJ */ /* CMDHD/FD2000/F4000 also have UJP to reload partition table */
+                        /* Warm/Cold reset */
+                        vdrive_close_all_channels(vdrive);
+                        vdrive_reset_last_track_sector(vdrive);
+
                         if (cmd.commandlength > 2 && cmd.command[2] == 'P' &&
                             vdrive->haspt ) {
-                            vdrive_close_all_channels(vdrive); /* Warm/Cold reset */
                             vdrive->sys_offset = UINT32_MAX;
                             vdrive->current_offset = UINT32_MAX;
+
                             if (!vdrive_read_partition_table(vdrive)) {
                                 /* try to switch to default */
                                 if (vdrive_command_switch(vdrive, vdrive->default_part)) {
@@ -321,6 +325,7 @@ int vdrive_command_execute(vdrive_t *vdrive, const uint8_t *buf,
                             status = CBMDOS_IPE_NOT_READY;
                             goto out;
                         }
+
                         status = CBMDOS_IPE_DOS_VERSION;
                         goto out;
 
@@ -515,8 +520,9 @@ static int vdrive_command_u1a2b(vdrive_t *vdrive, cbmdos_cmd_parse_plus_t *cmd)
                       "drive=%d, track=%d sector=%d.", rc, channel,
                       vdrive->buffers[channel].mode, drive, track, sector);
 #endif
+            bufferinfo_t *p = &(vdrive->buffers[channel]);
 
-            if (vdrive->buffers[channel].mode != BUFFER_MEMORY_BUFFER) {
+            if (p->mode != BUFFER_MEMORY_BUFFER) {
                 status = CBMDOS_IPE_NO_CHANNEL;
                 track = 0;
                 sector = 0;
@@ -532,7 +538,7 @@ static int vdrive_command_u1a2b(vdrive_t *vdrive, cbmdos_cmd_parse_plus_t *cmd)
                     sector = 0;
                     goto out;
                 } else {
-                    drive = vdrive->buffers[channel].partition;
+                    drive = p->partition;
                 }
             }
             /* drive is honored when using dual drives; checked next */
@@ -554,30 +560,42 @@ static int vdrive_command_u1a2b(vdrive_t *vdrive, cbmdos_cmd_parse_plus_t *cmd)
                     goto out;
                 }
 #endif
-                status = vdrive_write_sector(vdrive, vdrive->buffers[channel].buffer, track, sector);
-                if (status > 0) {
-                    goto out;
-                } else if (status < 0) {
-                    track = 0;
-                    sector = 0;
+                status = vdrive_write_sector(vdrive, p->buffer, track, sector);
+                if (status < 0) {
                     status = CBMDOS_IPE_NOT_READY;
-                    goto out;
                 }
             } else if (cmd->command[1] == '1' || cmd->command[1] == 'A') {
                 /* For read */
-                status = vdrive_read_sector(vdrive, vdrive->buffers[channel].buffer, track, sector);
-                if (status > 0) {
-                    goto out;
-                } else if (status < 0) {
-                    track = 0;
-                    sector = 0;
+                status = vdrive_read_sector(vdrive, p->buffer, track, sector);
+                if( status < 0 )
+                  {
                     status = CBMDOS_IPE_NOT_READY;
-                    goto out;
-                }
+                    track  = 0;
+                    sector = 0;
+                  }
+                else
+                  {
+                    p->length   = 256;
+                    p->readmode = CBMDOS_FAM_READ;
+                    if( status==0 )
+                      {
+                        p->bufptr = 0;
+                      }
+                    else 
+                      {
+                        // if an error happens when reading a block, the buffer pointer resets to 1, not 0
+                        p->bufptr = 1;
+
+                        if( status==23 )
+                          {
+                            // if error 23 happens and the buffer is read anyways, the first byte
+                            // transmitted seems to be the buffer number. We don't always have the
+                            // exact buffer number, in those cases we report 2 (the "user buffer").
+                            vdrive->mem_buf_next_byte_override = p->bufnum<0 ? 2 : p->bufnum;
+                          }
+                      }
+                  }
             }
-            vdrive->buffers[channel].bufptr = 0;
-            track = 0;
-            sector = 0;
         } else {
             log_error(vdrive_command_log, "U1/A/2/B invalid parameter "
                       "C:%i D:%i T:%i S:%i.", channel, drive, track, sector);
@@ -591,7 +609,7 @@ out:
     vdrive_command_return(vdrive, origpart);
 
     vdrive->last_code = CBMDOS_IPE_OK;
-
+    if( status==0 ) { track = 0; sector = 0; }
     return vdrive_command_set_error(vdrive, status, track, sector);
 }
 
@@ -3162,6 +3180,7 @@ static int vdrive_command_format_internal(vdrive_t *vdrive, cbmdos_cmd_parse_plu
         }
 
         vdrive_close_all_channels(vdrive);
+        vdrive_reset_last_track_sector(vdrive);
 
         /* setup disk image access */
         vdrive->sys_offset = psize;
@@ -3507,10 +3526,12 @@ int vdrive_command_set_error(vdrive_t *vdrive, int code, unsigned int track,
     /* Length points to the last byte, and doesn't give the length.  */
     p->length = (unsigned int)strlen((char *)p->buffer) - 1;
 
+#ifdef DEBUG_DRIVE
     if (code>=10 && code != CBMDOS_IPE_DOS_VERSION) {
         log_message(vdrive_command_log, "ERR = %02d, %s, %02u, %02u",
                     code, message, track, sector);
     }
+#endif
 
     p->bufptr = 0;
     p->readmode = CBMDOS_FAM_READ;
@@ -3776,9 +3797,11 @@ int vdrive_command_memory_read(vdrive_t *vdrive, const uint8_t *buf, uint16_t ad
           p->buffer[i] = addr+i<DRIVE_RAMSIZE ? vdrive->ram[addr+i] : 0xFF;
       }
 
-
-    /* add a CR at the end */
-    p->buffer[i] = 13;
+    /* add a CR at the end. Note the slight incompatibility here in that we don't add
+       the CR when returning a full 256 bytes of data (the 1541 does in that case too).
+       However the changes necessary to support that are significant and it seems
+       unnecessary to do unless some software is found that actually relies on it */
+    if( len<256 ) p->buffer[len++] = 13;
 
 out:
     p->length = len-1;

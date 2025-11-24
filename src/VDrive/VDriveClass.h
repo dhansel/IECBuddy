@@ -30,7 +30,9 @@ class VDrive
   bool isOk();
 
   // open a file within the current disk image on the given channel
-  bool openFile(uint8_t channel, const char *name, bool convertNameToPETSCII = false);
+  // nameLen is the length of the file name in bytes, if -1 then assume null-terminated name
+  // if convertToPETSCII is true convert name from ASCII to PETSCII encoding before opening
+  bool openFile(uint8_t channel, const char *name, int nameLen = -1, bool convertNameToPETSCII = false);
 
   // close the file that is currently open on a channel (if any)
   bool closeFile(uint8_t channel);

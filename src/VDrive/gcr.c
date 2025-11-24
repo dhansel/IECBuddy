@@ -232,9 +232,9 @@ static void gcr_decode_block(const disk_track_t *raw, int p, uint8_t *buf, int n
 static int gcr_read_sector_header(const disk_track_t *raw, uint8_t *header, int sector, uint16_t *pid)
 {
     uint8_t cs;
-    int p, p2, id, i;
+    int p2, id, i;
+    static int p = 0;
 
-    p = 0;
     p2 = -CBMDOS_FDC_ERR_SYNC;
     for (;; ) {
         p = gcr_find_sync(raw, p, raw->size * 8);

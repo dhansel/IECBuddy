@@ -602,7 +602,7 @@ uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
 }
 
 
-bool IECDrive::open(uint8_t channel, const char *name)
+bool IECDrive::open(uint8_t channel, const char *name, uint8_t nameLen)
 {
   if( m_drive->isOk() )
     {
@@ -614,7 +614,7 @@ bool IECDrive::open(uint8_t channel, const char *name)
           m_errorCode = openDir("$");
         }
       else
-        m_errorCode = m_drive->openFile(channel, name) ? E_OK : E_VDRIVE;
+        m_errorCode = m_drive->openFile(channel, name, nameLen) ? E_OK : E_VDRIVE;
 
       m_lastActivity = millis();
     }
@@ -726,52 +726,19 @@ void IECDrive::close(uint8_t channel)
 }
 
 
-void IECDrive::execute(const char *command, uint8_t len)
+void IECDrive::executeData(const uint8_t *command, uint8_t len)
 {
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
   setLEDState(LED_GREEN);
 
-  // detect whether this is a "CD" command (with some flexibility in syntax), "cdcmd" will be
-  //  0: if not a "CD" command
-  // -1: if this is a CD "up" command
-  // >0: "cdcmd" is the index of the first character of the directory name within "command"
-  int cdcmd = 0;
-  if( command[0]=='C' && command[1]=='D' )
+  if( memcmp(command, "M-W\x77\x00\x02", 6)==0 )
     {
-      // if there is a colon then ignore anything before (and including) the colon
-      const char *colon = strchr(command, ':');
-      cdcmd = colon==NULL ? 2 : (colon-command+1);
-
-      // is this a cd "up" command?
-      if( strcmp(command+cdcmd, "..")==0 || strcmp(command+cdcmd, "_")==0 || strcmp(command+cdcmd, "^")==0 || strcmp(command+cdcmd, "/")==0 )
-        cdcmd = -1;
-    }
-
-  if( command[0]=='X' || command[0]=='E' )
-    {
-      if( isdigit(command[1]) )
-        {
-          int d = atoi(command+1);
-          if( d>=4 && d<=15 )
-            {
-              m_config->setValue("device", std::to_string(d));
-              setDeviceNumber(d);
-              m_errorCode = E_OK;
-            }
-          else
-            m_errorCode = E_INVCMD;
-        }
-      else
-        m_errorCode = E_INVCMD;
-    }
-  else if( strncmp(command, "M-W\x77\x00\x02", 6)==0 )
-    {
-      // set device number
+      // temporarily set device number
       m_devnr = command[6] & 0x0F;
       m_errorCode = E_OK;
     }
-  else if( strncmp(command, "M-E", 3)==0 || strncmp(command, "B-E", 3)==0 || 
+  else if( memcmp(command, "M-E", 3)==0 || memcmp(command, "B-E", 3)==0 || 
            (command[0]=='U' && command[1]>='3' && command[1]<='8') ||
            (command[0]=='U' && command[1]>='C' && command[1]<='H') )
     {
@@ -786,9 +753,11 @@ void IECDrive::execute(const char *command, uint8_t len)
             { setLEDState(LED_RED); delay(101); setLEDState(LED_OFF); delay(101); }
         }
     }
-  else if( m_drive->isOk() && cdcmd==0 )
+  else if( m_drive->isOk() && (command[0]!='C' || command[1]!='D') && command[0]!='X' && command[0]!='E' )
     {
-      int r = m_drive->execute(command, len);
+      // "CD", "X" and "E" commands are processed outside of the VDrive (in function "execute" below)
+
+      int r = m_drive->execute((const char *) command, len);
       if( r==2 )
         {
           // this was a command that placed its response in the status buffer
@@ -806,22 +775,74 @@ void IECDrive::execute(const char *command, uint8_t len)
       // buffer will be prefixed to the data from the new record or buffer location
       if( command[0]=='P' && len>=2 )
         clearReadBuffer(command[1] & 0x0f);
-      else if( strncmp(command, "B-P", 3)==0 || strncmp(command, "B-R", 3)==0 )
+      else if( memcmp(command, "U1", 2)==0 || memcmp(command, "B-P", 3)==0 || memcmp(command, "B-R", 3)==0 )
         {
-          int i = 3;
+          int i = command[0]=='U' ? 2 : 3;
           while( i<len && !isdigit(command[i]) ) i++;
-          if( i<len ) clearReadBuffer(atoi(command+i));
-        }
-      else if( strncmp(command, "U1", 2)==0 )
-        {
-          int i = 2;
-          while( i<len && !isdigit(command[i]) ) i++;
-          if( i<len ) clearReadBuffer(atoi(command+i));
+          if( i<len ) 
+            {
+              uint8_t channel = command[i]-'0';
+              if( i+1<len && isdigit(command[i+1]) )
+                channel = 10*channel + (command[i+1]-'0');
+              
+              clearReadBuffer(channel);
+            }
         }
 
       m_lastActivity = millis();
     }
-  else if( strncmp(command, "S:", 2)==0 )
+  else if( memcmp(command, "M-R\xfa\x02\x03", 6)==0 )
+    {
+      // hack: DolphinDos' MultiDubTwo reads 02FA-02FC to determine
+      // number of free blocks => pretend we have 664 (0298h) blocks available
+      uint8_t data[3] = {0x98, 0, 0x02};
+      setStatus((char *) data, 3);
+      m_errorCode = E_OK;
+    }
+  else if( memcmp(command, "M-R", 3)==0 && len>=6 && command[5]<=32 )
+    {
+      // memory read not supported => always return 0xFF
+      uint8_t n = command[5];
+      char buf[32];
+      memset(buf, 0xFF, n);
+      setStatus(buf, n);
+      m_errorCode = E_OK;
+    }
+  else if( memcmp(command, "M-W", 3)==0 )
+    {
+      // memory write not supported => ignore
+      m_errorCode = E_OK;
+    }
+  else
+    {
+      // calling IECFileDevice::executeData will strip off trailing CRs, make sure the 
+      // command is 0-terminated and then call IECSD::execute(command) below
+      IECFileDevice::executeData(command, len);
+    }
+  
+  setLEDState(LED_OFF);
+}
+
+
+void IECDrive::execute(const char *command)
+{
+  // detect whether this is a "CD" command (with some flexibility in syntax), "cdcmd" will be
+  //  0: if not a "CD" command
+  // -1: if this is a CD "up" command
+  // >0: "cdcmd" is the index of the first character of the directory name within "command"
+  int cdcmd = 0;
+  if( command[0]=='C' && command[1]=='D' )
+    {
+      // if there is a colon then ignore anything before (and including) the colon
+      const char *colon = strchr(command, ':');
+      cdcmd = colon==NULL ? 2 : (colon-command+1);
+
+      // is this a cd "up" command?
+      if( strcmp(command+cdcmd, "..")==0 || strcmp(command+cdcmd, "_")==0 || strcmp(command+cdcmd, "^")==0 || strcmp(command+cdcmd, "/")==0 )
+        cdcmd = -1;
+    }
+
+  if( strncmp(command, "S:", 2)==0 )
     {
       char pattern[17];
       m_errorCode = E_SCRATCHED;
@@ -869,28 +890,6 @@ void IECDrive::execute(const char *command, uint8_t len)
           else
             m_errorCode = E_INVNAME;
         }
-    }
-  else if( strncmp(command, "M-R\xfa\x02\x03", 6)==0 )
-    {
-      // hack: DolphinDos' MultiDubTwo reads 02FA-02FC to determine
-      // number of free blocks => pretend we have 664 (0298h) blocks available
-      uint8_t data[3] = {0x98, 0, 0x02};
-      setStatus((char *) data, 3);
-      m_errorCode = E_OK;
-    }
-  else if( strncmp(command, "M-R", 3)==0 && len>=6 && command[5]<=32 )
-    {
-      // memory read not supported => always return 0xFF
-      uint8_t n = command[5];
-      char buf[32];
-      memset(buf, 0xFF, n);
-      setStatus(buf, n);
-      m_errorCode = E_OK;
-    }
-  else if( strncmp(command, "M-W", 3)==0 )
-    {
-      // memory write not supported => ignore
-      m_errorCode = E_OK;
     }
   else if( cdcmd<0 )
     {
@@ -968,6 +967,23 @@ void IECDrive::execute(const char *command, uint8_t len)
 
       m_errorCode = E_OK;
     }
+  else if( command[0]=='X' || command[0]=='E' )
+    {
+      if( isdigit(command[1]) )
+        {
+          int d = atoi(command+1);
+          if( d>=4 && d<=15 )
+            {
+              m_config->setValue("device", std::to_string(d));
+              setDeviceNumber(d);
+              m_errorCode = E_OK;
+            }
+          else
+            m_errorCode = E_INVCMD;
+        }
+      else
+        m_errorCode = E_INVCMD;
+    }
   else
     m_errorCode = E_INVCMD;
 
@@ -979,8 +995,6 @@ void IECDrive::execute(const char *command, uint8_t len)
     }
   else if( m_errorCode!=E_OK )
     updateDisplayStatus();
-
-  setLEDState(LED_OFF);
 }
 
 

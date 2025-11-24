@@ -63,9 +63,6 @@
 #include "vdrive-internal.h"
 #include "vdrive-rel.h"
 #include "vdrive.h"
-#if 0
-#include "uiapi.h"
-#endif
 
 static log_t vdrive_log = LOG_DEFAULT;
 
@@ -124,6 +121,7 @@ void vdrive_alloc_buffer(vdrive_t *vdrive, bufferinfo_t *p, int bufnum, int mode
         p->buffer = lib_realloc(p->buffer, size);
       }
     p->mode = mode;
+    p->bufnum = bufnum;
 }
 
 void vdrive_free_buffer(bufferinfo_t *p)
@@ -171,7 +169,7 @@ int vdrive_device_setup(vdrive_t *vdrive, unsigned int unit)
     vdrive->d90toggle = 0;
     vdrive->dir_part = 0;
     vdrive->last_code = CBMDOS_IPE_OK;
-
+    vdrive->mem_buf_next_byte_override = -1;
     return 0;
 }
 
@@ -184,8 +182,8 @@ void vdrive_device_shutdown(vdrive_t *vdrive)
         for (i = 0; i < 16; i++) {
             p = &(vdrive->buffers[i]);
             vdrive_free_buffer(p);
-            if( p->buffer!=NULL && mem_is_within_drive_ram(vdrive, p->buffer) )
-              lib_free(p->buffer);
+            if( p->buffer!=NULL && !mem_is_within_drive_ram(vdrive, p->buffer) )
+	      lib_free(p->buffer);
             p->buffer = NULL;
         }
     }
@@ -272,6 +270,18 @@ void vdrive_close_all_channels(vdrive_t *vdrive)
         }
     }
 }
+
+
+void vdrive_reset_last_track_sector(vdrive_t *vdrive)
+{
+  /* reset "last file" pointers for 1541 */
+  if( VDRIVE_IS_1541(vdrive) )
+    {
+      vdrive->ram[0x007E] = 0; // track
+      vdrive->ram[0x026F] = 0; // sector
+    }
+}
+
 
 /* ------------------------------------------------------------------------- */
 
@@ -592,11 +602,7 @@ int vdrive_attach_image(disk_image_t *image, unsigned int unit,
     }
 
     /* reset "last file" pointers for 1541 */
-    if( VDRIVE_IS_1541(vdrive) )
-      {
-        vdrive->ram[0x007E] = 0; // track
-        vdrive->ram[0x026F] = 0; // sector
-      }
+    vdrive_reset_last_track_sector(vdrive);
 
 #if 0
     /* read whole bam to ensure image is good */
