@@ -128,9 +128,33 @@ unsigned int cbmdos_parse_wildcard_check(const char *name, unsigned int len)
 
 unsigned int cbmdos_parse_wildcard_compare(const uint8_t *pattern, int pattern_length, const uint8_t *dirname)
 {
-    unsigned int index;
+    /* modeled after code in C1541 ROM at $C50A:
+       C505   LDY #$03      ; start Y (file name char index) at 3
+       C507   JMP $C51D
+       C50A   LDA $0200,X   ; get pattern char
+       C50D   CMP ($94),Y   ; compare to file name char
+       C50F   BEQ $C51B     ; if equal => next character
+       C511   CMP #$3F      ; is pattern a "?"
+       C513   BNE $C4E7     ; jump if not (NO match)
+       C515   LDA ($94),Y   ; get file name char
+       C517   CMP #$A0      ; is it a shift-space?
+       C519   BEQ $C4E7     ; jump if so (NO match)
+       C51B   INX           ; advance pattern char
+       C51C   INY           ; advance file name char
+       C51D   CPX $0276     ; compare X to pattern length (pattern length is capped at 16)
+       C520   BCS $C52B     ; jump if X>=pattern length (done comparing)
+       C522   LDA $0200,X   ; get pattern char
+       C525   CMP #$2A      ; is it a "*"
+       C527   BEQ $C535     ; jump if so (found match)
+       C529   BNE $C50A     ; loop (jump always)
+       C52B   CPY #$13      ; compare Y to 16+3 (end of file name)
+       C52D   BCS $C535     ; jump if Y>=end of file name (found match)
+       C52F   LDA ($94),Y   ; get file name char
+       C531   CMP #$A0      ; is it shift-space?
+       C533   BNE $C4E7     ; jump if not (NO match)
+       C535   ...           ; found match */
 
-    /* modeled after code in C1541 ROM at $C50A */
+    unsigned int index;
     for(index=0; index<CBMDOS_SLOT_NAME_LENGTH; index++)
       {
         if( index >= pattern_length )
@@ -141,7 +165,7 @@ unsigned int cbmdos_parse_wildcard_compare(const uint8_t *pattern, int pattern_l
         if( pattern[index]!=dirname[index] ) {
           if( pattern[index]!='?' )
             return 0;
-          else if( dirname[index]!=0xA0 )
+          else if( dirname[index]==0xA0 )
             return 0;
         }
       }
