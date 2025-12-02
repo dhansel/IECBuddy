@@ -285,7 +285,7 @@ int vdrive_command_execute(vdrive_t *vdrive, const uint8_t *buf,
                     case 'H':
                     case '8':
                         if (cmd.commandlength == 2) {
-                            status = CBMDOS_IPE_NOT_READY;
+                            status = CBMDOS_IPE_MEMEXE_NOT_SUPPORTED;
                         }
                         goto out;
 
@@ -794,7 +794,7 @@ static int vdrive_command_block(vdrive_t *vdrive, cbmdos_cmd_parse_plus_t *cmd)
             break;
         case 'E':
             log_warning(vdrive_command_log, "B-E: %d %d %d %d (needs TDE)", channel, drive, track, sector);
-            status = CBMDOS_IPE_OK;
+            status = CBMDOS_IPE_MEMEXE_NOT_SUPPORTED;
             goto out;
             break;
         default:
@@ -3651,8 +3651,27 @@ log_warning(LOG_DEFAULT,"job #%d write sector %u %u",i,(unsigned int)vdrive->ram
                     }
                     break;
 
-                case 0xa0:
                 case 0xb0:
+                  {
+#ifdef DEBUG_DRIVE
+                    log_warning(LOG_DEFAULT,"job #%d read sector header %u %u",i,(unsigned int)vdrive->ram[tracksector + (i << 1)], (unsigned int)vdrive->ram[tracksector + (i << 1) + 1]);
+#endif
+                    uint8_t id[2];
+                    disk_addr_t dadr;
+                    dadr.track = vdrive->ram[tracksector + (i << 1)];
+                    dadr.sector = vdrive->ram[tracksector + (i << 1) + 1];
+                    res = disk_image_read_sector_id(vdrive->image, id, &dadr);
+                    vdrive->ram[jobs + i] = cbmdos_error_to_fdc_error(res);
+                    if( res==CBMDOS_IPE_OK )
+                      {
+                        vdrive->ram[0x12] = vdrive->ram[0x16] = id[0];
+                        vdrive->ram[0x13] = vdrive->ram[0x17] = id[1];
+                      }
+
+                    break;
+                  }
+
+                case 0xa0:
                 case 0xb8:
                 case 0x82:
                 case 0x86:
@@ -3701,7 +3720,7 @@ int vdrive_command_memory_exec(vdrive_t *vdrive, const uint8_t *buf, uint16_t ad
     }
 
     log_warning(vdrive_command_log, "M-E %04x (+%u) (needs TDE)", addr, length - 5);
-    return vdrive_command_set_error(vdrive, CBMDOS_IPE_OK, 0, 0);
+    return vdrive_command_set_error(vdrive, CBMDOS_IPE_MEMEXE_NOT_SUPPORTED, 0, 0);
 }
 
 /*
@@ -3719,22 +3738,17 @@ int vdrive_command_memory_exec(vdrive_t *vdrive, const uint8_t *buf, uint16_t ad
 */
 int vdrive_command_memory_read(vdrive_t *vdrive, const uint8_t *buf, uint16_t addr, unsigned int length)
 {
-    unsigned int len = buf[0];
+    unsigned int len = length<6 ? 1 : buf[0];
     int i;
     bufferinfo_t *p = &vdrive->buffers[15];
 
-    if (length < 6) {
-        log_warning(vdrive_command_log,
-            "M-R %04x %u (command ends prematurely, got %u bytes) (might need TDE)", addr, len, length);
-        if (length < 5) {
-            return vdrive_command_set_error(vdrive, CBMDOS_IPE_SYNTAX, 0, 0);
-        } else {
-            len = 1; /* when no length byte is present, the length is 1 */
-        }
-    } else {
-        log_warning(vdrive_command_log, "M-R %04x %u (+%u) (might need TDE)",
-                addr, len, length - 6);
+    if (length < 5) {
+      log_warning(vdrive_command_log,
+                  "M-R %04x %u (command ends prematurely, got %u bytes)", addr, len, length);
+      return vdrive_command_set_error(vdrive, CBMDOS_IPE_SYNTAX, 0, 0);
     }
+
+    log_warning(vdrive_command_log, "M-R %04x %u (might need TDE)", addr, len);
 
     /* support only FD series for FD-TOOLS */
     if (VDRIVE_IS_FD(vdrive) && VDRIVE_IS_IMAGE(vdrive)) {

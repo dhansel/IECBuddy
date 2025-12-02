@@ -38,7 +38,7 @@
 #define VDRIVE_PART_SUPPORTED(a) (vdrive->ptype[a]>=1 && vdrive->ptype[a]<=4)
 #define VDRIVE_IS_FD(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_D1M || a->image->type == DISK_IMAGE_TYPE_D2M || a->image->type == DISK_IMAGE_TYPE_D4M ))
 #define VDRIVE_IS_HD(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_DHD))
-#define VDRIVE_IS_1541(a) (a->image && (a->image->type == DISK_IMAGE_TYPE_D64 || DISK_IMAGE_TYPE_G64 ))
+#define VDRIVE_IS_1541(a) (a->image && ((a->image->type == DISK_IMAGE_TYPE_D64) || (a->image->type == DISK_IMAGE_TYPE_G64 )))
 #define VDRIVE_IS_READONLY(a) (a->image_mode > 0)
 
 /* High level disk formats.

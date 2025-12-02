@@ -84,6 +84,7 @@ static const cbmdos_errortext_t cbmdos_error_messages[] =
     { 77, "SELECTED PARTITION ILLEGAL" },   /* 1581 */
     { 80, "DIRECTORY NOT EMPTY" },
     { 81, "PERMISSION DENIED" },
+    { 99, "M-E NOT SUPPORTED" },
     { 255, NULL }
 };
 

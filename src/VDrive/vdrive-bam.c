@@ -1576,7 +1576,12 @@ void vdrive_bam_setup_bam(vdrive_t *vdrive)
                     vdrive->image_format);
     }
 
-  // 1541 has disk id in RAM at $12
+  // 1541 has disk id in RAM at $12 and $16
   if( VDRIVE_IS_1541(vdrive) )
-    vdrive_bam_int_get_disk_id(vdrive, vdrive->ram + 0x12);
+    {
+      uint8_t id[2] = {0, 0};
+      vdrive_bam_int_get_disk_id(vdrive, id);
+      vdrive->ram[0x12] = vdrive->ram[0x16] = id[0];
+      vdrive->ram[0x13] = vdrive->ram[0x17] = id[1];
+    }
 }

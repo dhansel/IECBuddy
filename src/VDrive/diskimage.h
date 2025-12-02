@@ -137,6 +137,7 @@ void disk_image_media_destroy(disk_image_t *image);
 int disk_image_open(disk_image_t *image);
 int disk_image_close(disk_image_t *image);
 
+int disk_image_read_sector_id(const disk_image_t *image, uint8_t *buf, const disk_addr_t *dadr);
 int disk_image_read_sector(const disk_image_t *image, uint8_t *buf, const disk_addr_t *dadr);
 int disk_image_write_sector(disk_image_t *image, const uint8_t *buf, const disk_addr_t *dadr);
 int disk_image_check_sector(const disk_image_t *image, unsigned int track, unsigned int sector);

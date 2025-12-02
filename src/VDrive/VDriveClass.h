@@ -78,6 +78,10 @@ class VDrive
   // calling this if read/write/execute fails gives the standard CBMDOS error messages
   const char *getStatusString();
 
+  // returns the current status code according to the error message buffer
+  // returns -1 if the content of the error message buffer does not start with "NN," (N=digit)
+  int getStatusCode();
+
   // copies the contents of the drive's status buffer to "buf", not exceeding
   // the given bufSize length. If given, "eoi" will be set to true/false
   // depending on whether all information from the buffer has been read

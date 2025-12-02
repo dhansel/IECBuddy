@@ -13,6 +13,7 @@ extern "C"
 #include "diskcontents-block.h"
 #include "imagecontents.h"
 #include "fsimage.h"
+#include <ctype.h>
 }
 
 
@@ -332,6 +333,18 @@ void VDrive::printDir()
 const char *VDrive::getStatusString()
 {
   return (char *)m_drive->buffers[15].buffer;
+}
+
+
+int VDrive::getStatusCode()
+{
+  if( m_drive->buffers[15].length>=2 && 
+      isdigit(m_drive->buffers[15].buffer[0]) &&
+      isdigit(m_drive->buffers[15].buffer[1]) &&
+      m_drive->buffers[15].buffer[2]==',' )
+    return (m_drive->buffers[15].buffer[0]-'0')*10 + (m_drive->buffers[15].buffer[1]-'0');
+  else
+    return -1;
 }
 
 

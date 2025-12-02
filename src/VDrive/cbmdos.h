@@ -77,6 +77,8 @@
 #define CBMDOS_IPE_NOT_EMPTY               80  /* dir to remove not empty */
 #define CBMDOS_IPE_PERMISSION              81  /* permission denied */
 
+#define CBMDOS_IPE_MEMEXE_NOT_SUPPORTED    99  /* emulation error: we don't support TDE */
+
 /* CBM DOS File Types */
 #define CBMDOS_FT_DEL         0       /* should match FILEIO_TYPE_xxx */
 #define CBMDOS_FT_SEQ         1
