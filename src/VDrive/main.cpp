@@ -15,7 +15,7 @@ int main_(VDrive *drive, int argc, char **argv)
 
   if( argc>1 )
     {
-      if( argc>2 && strcmp(argv[2], "list")==0 )
+      if( argc>2 && (strcmp(argv[2], "list")==0 || strcmp(argv[2], "dir")==0) )
         drive->printDir();
       else if( argc>2 && strcmp(argv[2], "create")==0 )
         {
@@ -268,6 +268,10 @@ int main_(VDrive *drive, int argc, char **argv)
 
               drive->closeFile(channel);
             }
+        }
+      else if( argc>2 && strcmp(argv[2], "nblocks")==0 )
+        {
+          printf("Number of blocks: %i\n", drive->getFileNumBlocks(argc>3 ? argv[3] : "*", true));
         }
       else
         printf("invalid command\n");
