@@ -540,8 +540,9 @@ void IECDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileNam
   m_display->clearDisplay();
   m_display->setCursor(0,0);
   m_display->setTextSize(3);
-  m_display->setTextColor(RGB565_WHITE);
+  m_display->setTextColor(RGB565_YELLOW);
   m_display->println(msg.c_str());
+  m_display->setTextColor(RGB565_WHITE);
   m_display->print(fileName.c_str());
 }
 
