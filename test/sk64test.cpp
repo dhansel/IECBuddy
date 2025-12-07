@@ -1,17 +1,19 @@
 #include <stdio.h>
 #include <iostream>
 #include <algorithm>
-#include "ceserial.h"
+#include <vector>
+#include <string.h>
+
 #include "../protocol.h"
-using namespace std;
+#include "../SKTool/commfun.h"
+#include "../SKTool/utilfun.h"
 
 extern "C" {
 #include "drv-nl10.h"
 }
 
-#define DEBUG 0
-
 // ------------ Printer data file reader class
+
 
 class PrinterDataFile
 {
@@ -101,671 +103,6 @@ void PrinterDataFile::ReadHeader()
 }
 
 
-// ------------------ helper functions -----------------
-
-static ceSerial com;
-
-#define SHOW_LOWERCASE 0
-uint8_t toPETSCII(uint8_t c)
-{
-  if( c>=65 && c<=90 && SHOW_LOWERCASE )
-    c += 32;
-  else if( c>=97 && c<=122 )
-    c -= 32;
-  
-  return c;
-}
-
-
-string toPETSCII(const string &s)
-{
-  string rs;
-  rs.reserve(s.length());
-
-  for(size_t i=0; i<s.length(); i++)
-    rs += char(toPETSCII(s[i]));
-  
-  return rs;
-}
-
-
-uint8_t fromPETSCII(uint8_t c)
-{
-  if( c==0xFF )
-    c = '~';
-  else if( c>=192 ) 
-    c -= 96;
-  
-  if( c>=65 && c<=90 )
-    c += 32;
-  else if( c>=97 && c<=122 )
-    c -= 32;
-  
-  return c;
-}
-
-
-string fromPETSCII(const string &s)
-{
-  string rs;
-  rs.reserve(s.length());
-
-  for(size_t i=0; i<s.length(); i++)
-    rs += fromPETSCII(s[i]);
-
-  return rs;
-}
-
-
-bool send_data(uint32_t length, const uint8_t *buffer)
-{
-  uint32_t n = com.Write((const char *) buffer, (long) length) ? length : 0;
-
-#if DEBUG>=2
-  if( n!=length )
-    printf("=> ERROR (%i/%i): ", n, length);
-  else
-    printf("=> %i: ", length);
-
-  for(uint32_t i=0; i<length; i++) 
-    {
-      if( DEBUG==2 && i==10 ) { printf("[...]"); break; }
-      printf("%02X ", buffer[i]);
-    }
-
-  printf("\n");
-#endif
-
-  return n==length;
-}
-
-
-bool recv_data(uint32_t length, uint8_t *buffer)
-{
-  uint32_t n = 0;
-
-  if( length>0 )
-    while( n==0 ) 
-      { 
-        n = com.Read((char *) buffer, (long) length) ? length : 0;
-        if( n==0 ) Sleep(10);
-      }
-
-#if DEBUG>=2
-  if( n!=length )
-    printf("<= ERROR (%i/%i)", n, length); 
-  else
-    printf("<= %i: ", length);
-
-  for(uint32_t i=0; i<n; i++) 
-    {
-      if( DEBUG==2 && i==10 ) { printf("[...]"); break; }
-      printf("%02X ", buffer[i]);
-    }
-
-  printf("\n");
-#endif
-
-  return n==length;
-}
-
-
-// ------------------ command functions -----------------
-
-
-StatusType readDir()
-{
-  StatusType status = ST_OK;
-  uint32_t available;
-
-#if DEBUG>0
-  printf("readDir()\n");
-#endif
-
-  if( !send_command(CMD_DIR) ) 
-    status = ST_COM_ERROR;
-
-  if( status==ST_OK )
-    status = recv_status();
-
-  if( status==ST_OK )
-    if( !recv_uint(available) )
-      status = ST_COM_ERROR;
-
-  if( status==ST_OK )
-    {
-      bool ok = true;
-
-      uint32_t flags, size;
-      string   name;
-
-      while( (ok=recv_uint(flags)) && flags!=0xFFFFFFFF )
-        {
-          if( ok ) ok = recv_uint(size);
-          if( ok ) ok = recv_string(name);
-          if( ok )
-            {
-              printf("%7u %02X %s\n", size, flags, fromPETSCII(name).c_str());
-            }
-        }
-
-      printf("%7u bytes free.\n\n", available);
-      if( !ok ) status = ST_COM_ERROR;
-    }
-  
-  return status;
-}
-
-
-StatusType getDriveStatus(string &drivestatus)
-{
-  StatusType status = ST_OK;
-
-#if DEBUG>0
-  printf("getdrivestatus()\n");
-#endif
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_DRIVESTATUS) )
-      status = ST_COM_ERROR;
-  
-  if( status==ST_OK )
-    if( !recv_string(drivestatus) )
-      status = ST_COM_ERROR;
-
-  return status;
-}
-
-
-StatusType sendDriveCommand(const string &cmd)
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_DRIVECMD) )
-      status = ST_COM_ERROR;
-
-  // send command string
-  if( status==ST_OK )
-    if( !send_string(toPETSCII(cmd)) )
-      status = ST_COM_ERROR;
-  
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  return status;
-}
-
-
-StatusType putFile(const string &fname)
-{
-  StatusType status = ST_OK;
-
-#if DEBUG>0
-  printf("putFile(%s)", fname.c_str());
-#endif
-
-  FILE *file = fopen(fname.c_str(), "rb");
-  if( file )
-    {
-      // send command
-      if( status==ST_OK )
-        if( !send_command(CMD_PUTFILE) ) 
-          status = ST_COM_ERROR;
-
-      // send file name
-      if( status==ST_OK )
-        if( !send_string(toPETSCII(fname)) ) 
-          status = ST_COM_ERROR;
-
-      // send file length
-      fseek(file, 0, SEEK_END);
-      uint32_t length = ftell(file);
-      if( status==ST_OK )
-        if( !send_uint(length) )
-          status = ST_COM_ERROR;
-
-#if DEBUG>0
-      printf(" %u bytes ", length); fflush(stdout);
-#endif
-          
-      // receive status
-      if( status==ST_OK )
-        status = recv_status();
-      
-      // send data
-      uint8_t buf[1024];
-      fseek(file, 0, SEEK_SET);
-      while( status==ST_OK && length>0 )
-        {
-          uint32_t n = min(1024u, length);
-          uint32_t i = fread(buf, 1, n, file);
-#if DEBUG>0
-          printf(".");
-#endif
-          // receiver expects a full block so we send it even if read failed
-          if( !send_data(n, buf) ) status = ST_COM_ERROR;
-
-          // compute and send checksum for data block
-          uint8_t checksum = 0;
-          for(uint32_t j=0; j<i; j++) checksum ^= buf[j];
-          if( status==ST_OK )
-            if( !send_data(1, &checksum) )
-              status = ST_COM_ERROR;
-
-          // check if we successfully read the data
-          if( i!=n ) status = ST_READ_ERROR;
-          
-          // send status
-          if( status!=ST_COM_ERROR )
-            if( !send_status(status) )
-              status = ST_COM_ERROR;
-          
-          // receive status
-          if( status==ST_OK )
-            status = recv_status();
-          
-          length -= i;
-        }
-    }
-  else
-    status = ST_READ_ERROR;
-
-#if DEBUG>0
-  printf("\n");
-#endif
-
-  return status;
-}
-
-
-StatusType getFile(const string &fname, string dstfname = "")
-{
-  StatusType status = ST_OK;
-
-#if DEBUG>0
-  printf("getFile(%s)", fname.c_str()); fflush(stdout);
-#endif
-
-  FILE *file = fopen(dstfname.empty() ? fname.c_str() : dstfname.c_str(), "wb");
-  if( file )
-    {
-      uint32_t length;
-
-      // send command
-      if( status==ST_OK )
-        if( !send_command(CMD_GETFILE) )
-          status = ST_COM_ERROR;
-      
-      // send file name
-      if( status==ST_OK )
-        if( !send_string(toPETSCII(fname)) )
-          status = ST_COM_ERROR;
-
-      // receive file length
-      if( status==ST_OK )
-        if( !recv_uint(length) )
-          status = ST_COM_ERROR;
-
-#if DEBUG>0
-      printf(" %u bytes ", length); fflush(stdout);
-#endif
-
-      // receive status
-      if( status==ST_OK )
-        status = recv_status();
-      
-      // receive data
-      uint8_t buf[1024];
-      while( status==ST_OK && length>0 )
-        {
-#if DEBUG>0
-          printf(".");
-#endif
-          uint8_t checksum1, checksum2;
-          uint32_t n = min(1024u, length);
-          
-          // receive data block
-          if( !recv_data(n, buf) )
-            status = ST_COM_ERROR;
-          
-          // compute and receive checksum
-          if( status==ST_OK )
-            {
-              uint8_t checksum1=0, checksum2=0;
-              for(uint32_t j=0; j<n; j++) checksum1 ^= buf[j];
-
-              if( !recv_data(1, &checksum2) )
-                status = ST_COM_ERROR;
-              else if( checksum1!=checksum2 )
-                status = ST_CHECKSUM_ERROR;
-            }
-
-          // receive transmitter status
-          if( status!=ST_COM_ERROR && recv_status()==ST_OK )
-            {
-              // save data block
-              if( status==ST_OK )
-                if( fwrite(buf, 1, n, file) != n )
-                  status = ST_WRITE_ERROR;
-
-              // send our status
-              if( !send_status(status) )
-                status = ST_COM_ERROR;
-            }
-
-          length -= n;
-        }
-
-      // close file
-      fclose(file);
-
-      // if there was a transmission error then remove 
-      // received (incomplete) file
-      if( status!=ST_OK )
-        remove(fname.c_str());
-    }
-
-#if DEBUG>0
-  printf("\n");
-#endif
-
-  return status;
-}
-
-
-StatusType mountDisk(const string &name)
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_MOUNT) )
-      status = ST_COM_ERROR;
-
-  // send image name
-  if( status==ST_OK )
-    if( !send_string(toPETSCII(name)) )
-      status = ST_COM_ERROR;
-  
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-  
-  return status;
-}
-
-
-StatusType unmountDisk()
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_UNMOUNT) )
-      status = ST_COM_ERROR;
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-  
-  return status;
-}
-
-
-StatusType getMountedDisk()
-{
-  string name;
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_GET_MOUNTED) )
-      status = ST_COM_ERROR;
-
-  // receive image name
-  if( status==ST_OK )
-    {
-      if( recv_string(name) )
-        name = fromPETSCII(name);
-      else
-        status = ST_COM_ERROR;
-    }
-  
-  if( status==ST_OK )
-    {
-      if( name.empty() )
-        status = ST_NOT_MOUNTED;
-      else
-        printf("Currently mounted disk image: %s\n", name.c_str());
-    }
-
-  return status;
-}
-
-
-StatusType setConfigValue(const string &key, const string &value)
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_SET_CONFIG_VAL) )
-      status = ST_COM_ERROR;
-
-  // send key and value
-  if( status==ST_OK )
-    if( !send_string(key) || !send_string(value) )
-      status = ST_COM_ERROR;
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  return status;
-}
-
-
-StatusType getConfigValue(const string &key)
-{
-  string value;
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_GET_CONFIG_VAL) )
-      status = ST_COM_ERROR;
-
-  // send key
-  if( status==ST_OK )
-    if( !send_string(key) )
-      status = ST_COM_ERROR;
-
-  // receive value
-  if( status==ST_OK )
-    if( !recv_string(value) )
-      status = ST_COM_ERROR;
-
-  if( status==ST_OK )
-    printf("Value of config '%s' is '%s'\n", key.c_str(), value.c_str());
-
-  return status;
-}
-
-
-StatusType clearConfig()
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_CLEAR_CONFIG) )
-      status = ST_COM_ERROR;
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  return status;
-}
-
-
-StatusType reboot()
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_REBOOT) )
-      status = ST_COM_ERROR;
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  return status;
-}
-
-
-StatusType deleteFile(const string &fname)
-{
-  StatusType status = ST_OK;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_DELETE_FILE) )
-      status = ST_COM_ERROR;
-
-  // send file name
-  if( status==ST_OK )
-    if( !send_string(toPETSCII(fname)) )
-      status = ST_COM_ERROR;
-  
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-  
-  return status;
-}
-
-
-StatusType sendBitmap(const string &fname, int32_t x, int32_t y, uint32_t w, uint32_t h)
-{
-  uint32_t nbytes = w*h*2;
-  uint8_t *buffer = NULL;
-  StatusType status = ST_OK;
-
-  FILE *f = fopen(fname.c_str(), "rb");
-  if( f )
-    {
-      buffer = (uint8_t *) malloc(nbytes);
-      if( fread(buffer, 1, nbytes, f)!=nbytes )
-        status = ST_INVALID_DATA;
-      fclose(f);
-    }
-  else
-    status = ST_FILE_NOT_FOUND;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_SHOW_BITMAP) )
-      status = ST_COM_ERROR;
-
-  // send position/size
-  if( status==ST_OK )
-    if( !send_sint(x) || !send_sint(y) || !send_uint(w) || !send_uint(h) )
-      status = ST_COM_ERROR;
-
-  // send image data
-  if( status==ST_OK )
-    {
-      uint8_t *ptr = buffer;
-      while( nbytes>0 && status==ST_OK && (status=recv_status())==ST_OK )
-        {
-          uint32_t n = min(1024u, nbytes);
-          if( send_data(n, ptr) )
-            {
-              ptr += n;
-              nbytes -= n;
-            }
-          else
-            status = ST_COM_ERROR;
-        }
-    }
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  if( buffer!=NULL )
-    free(buffer);
-
-  return status;
-}
-
-
-StatusType sendGIF(const string &fname, int32_t x, int32_t y)
-{
-  uint32_t nbytes;
-  uint8_t *buffer = NULL;
-  StatusType status = ST_OK;
-
-  FILE *f = fopen(fname.c_str(), "rb");
-  if( f )
-    {
-      fseek(f, 0, SEEK_END);
-      nbytes = ftell(f);
-      fseek(f, 0, SEEK_SET);
-
-      buffer = (uint8_t *) malloc(nbytes);
-      if( fread(buffer, 1, nbytes, f)!=nbytes )
-        status = ST_INVALID_DATA;
-      fclose(f);
-    }
-  else
-    status = ST_FILE_NOT_FOUND;
-
-  // send command
-  if( status==ST_OK )
-    if( !send_command(CMD_SHOW_GIF) )
-      status = ST_COM_ERROR;
-
-  // send position
-  if( status==ST_OK )
-    if( !send_sint(x) || !send_sint(y) || !send_uint(nbytes) )
-      status = ST_COM_ERROR;
-
-  // send image data
-  if( status==ST_OK )
-    {
-      uint8_t *ptr = buffer;
-      while( nbytes>0 && status==ST_OK && (status=recv_status())==ST_OK )
-        {
-          uint32_t n = min(1024u, nbytes);
-          if( send_data(n, ptr) )
-            {
-              ptr += n;
-              nbytes -= n;
-            }
-          else
-            status = ST_COM_ERROR;
-        }
-    }
-
-  // receive status
-  if( status==ST_OK )
-    status = recv_status();
-
-  if( buffer!=NULL )
-    free(buffer);
-
-  return status;
-}
-
-
 void print_data(string datafile, string driver)
 {
   if( driver=="ascii" )
@@ -843,11 +180,11 @@ void execCommand(string cmd)
 
   if( cmd == "dir" )
     {
-      status = readDir();
+      status = printDir();
     }
   else if( cmd.substr(0, 4)=="get " )
     {
-      status = getFile(cmd.substr(4));
+      status = getFile(toPETSCII(cmd.substr(4)));
     }
   else if( cmd.substr(0, 4)=="put " )
     {
@@ -855,7 +192,11 @@ void execCommand(string cmd)
     }
   else if( cmd.substr(0, 4)=="del " )
     {
-      status = deleteFile(cmd.substr(4));
+      status = deleteFile(toPETSCII(cmd.substr(4)));
+    }
+  else if( cmd.substr(0, 3)=="rm " )
+    {
+      status = deleteFile(toPETSCII(cmd.substr(3)));
     }
   else if( cmd.substr(0, 4)=="cmd " )
     {
@@ -904,20 +245,20 @@ void execCommand(string cmd)
     }
   else if( cmd=="print" )
     {
-      StatusType status = getFile(PRINTDATAFILE, "printdata.dat");
+      StatusType status = getFile(toPETSCII(PRINTDATAFILE), "printdata.dat");
       if( status==ST_OK )
         {
           print_data("printdata.dat", "ascii");
-          deleteFile(PRINTDATAFILE);
+          deleteFile(toPETSCII(PRINTDATAFILE));
         }
     }
   else if( cmd.substr(0,6)=="print " )
     {
-      StatusType status = getFile(PRINTDATAFILE, "printdata.dat");
+      StatusType status = getFile(toPETSCII(PRINTDATAFILE), "printdata.dat");
       if( status==ST_OK ) 
         {
           print_data("printdata.dat", cmd.substr(6));
-          deleteFile(PRINTDATAFILE);
+          deleteFile(toPETSCII(PRINTDATAFILE));
         }
     }
   else if( cmd.substr(0, 7)=="bitmap " )
@@ -951,11 +292,8 @@ void execCommand(string cmd)
 
   if( status!=ST_OK )
     printf("Error: %s (%i)\n", get_status_msg(status), status);
-#if DEBUG>0
-  else
-    printf("OK!\n");
-#endif
 }
+
 
 void showCommands()
 {
@@ -996,18 +334,8 @@ int main(int argc, char **argv)
         { *c = 0; fname=string(argv[1]); driver=string(c+1); }
 
       print_data(fname, driver);
-      return 0;
     }
-  else
-    {
-#ifdef WIN32
-      com.SetPortName("\\\\.\\" + string(argv[1]));
-#else
-      com.SetPortName("/dev/" + string(argv[1]));
-#endif
-    }
-
-  if( com.Open() == 0 )
+  else if( comOpen(argv[1])==0 )
     {
       if( argc<3 )
         {
@@ -1035,10 +363,10 @@ int main(int argc, char **argv)
             }
         }
 
-      com.Close();
+      comClose();
     }
   else
-    printf("Error opening port: %s\n", com.GetPort().c_str());
+    printf("Error opening port: %s\n", argv[1]);
   
   return 0;
 }

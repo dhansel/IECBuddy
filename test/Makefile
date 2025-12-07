@@ -1,8 +1,17 @@
-sk64test.exe: sk64test.oo drv-nl10.o drv-nl10-output.o drv-nl10-output-bmp.o drv-nl10-output-pdf.o
-	g++ sk64test.oo drv-nl10.o drv-nl10-output.o drv-nl10-output-bmp.o drv-nl10-output-pdf.o -o sk64test.exe
+sk64test.exe: sk64test.oo commfun.oo utilfun.oo drv-nl10.o drv-nl10-output.o drv-nl10-output-bmp.o drv-nl10-output-pdf.o protocol.oo
+	g++ sk64test.oo commfun.oo utilfun.oo protocol.oo drv-nl10.o drv-nl10-output.o drv-nl10-output-bmp.o drv-nl10-output-pdf.o -lsetupapi -o sk64test.exe
 
-sk64test.oo: sk64test.cpp ../protocol.h ceserial.h drv-nl10.h
+sk64test.oo: sk64test.cpp drv-nl10.h ../SKTool/commfun.h ../SKTool/utilfun.h ../protocol.h
 	g++ -c sk64test.cpp -o sk64test.oo
+
+commfun.oo: ../SKTool/commfun.cpp ../SKTool/commfun.h ceserial.h ../protocol.h
+	g++ -c ../SKTool/commfun.cpp -o commfun.oo
+
+utilfun.oo: ../SKTool/utilfun.cpp ../SKTool/utilfun.h
+	g++ -c ../SKTool/utilfun.cpp -o utilfun.oo
+
+protocol.oo: ../protocol.cpp ../protocol.h
+	g++ -c ../protocol.cpp -o protocol.oo
 
 drv-nl10.o: drv-nl10.c drv-nl10.h drv-nl10-output.h
 	gcc -c drv-nl10.c -o drv-nl10.o
