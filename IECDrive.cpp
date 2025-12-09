@@ -368,6 +368,7 @@ bool IECDrive::readDir(uint8_t *data)
                 {
                   strncpy(m_dirBuffer+m_dirBufferLen, name.c_str(), n);
                   m_dirBuffer[m_dirBufferLen+n] = 0;
+                  if( name.length()>16 ) m_dirBuffer[m_dirBufferLen+15] = '*';
 
                   char ftype[4];
                   strcpy(ftype, "???");
