@@ -24,6 +24,8 @@ class IECDisplay
   virtual void startProgress(int nbytestotal);
   virtual void updateProgress(int nbytes);
   virtual void endProgress();
+
+  virtual void setRotation(uint32_t rotation) {}
   virtual void redraw();
 
   virtual uint32_t startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h) { return 1; }

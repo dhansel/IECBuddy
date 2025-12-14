@@ -520,6 +520,13 @@ void IECDisplay_ST7789::begin(uint32_t rotation)
 }
 
 
+void IECDisplay_ST7789::setRotation(uint32_t rotation)
+{
+  m_display->fillRect(0, 0, m_display->width(), m_display->height(), RGB565_BLACK);
+  m_display->setRotation((rotation/90)%4);
+}
+
+
 void IECDisplay_ST7789::showMessage(std::string msg)
 {
   // display "Searching..." message while finding disk image if button is pressed

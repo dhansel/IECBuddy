@@ -550,6 +550,12 @@ void setConfigValue()
       Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
 #endif
       iecConfig.setValue(key, value);
+      if( key=="rotate" )
+        {
+          iecDisplay->setRotation(atoi(value.c_str()));
+          const char *image = iecDrive.getMountedImageName();
+          iecDisplay->setCurrentImageName(image ? string(image) : "");
+        }
       send_status(ST_OK);
     }
 }
