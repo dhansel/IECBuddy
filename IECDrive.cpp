@@ -964,6 +964,12 @@ void IECDrive::execute(const char *command)
             m_diskFlushTimeout = std::atoi(val.c_str());
           else if( tolower(key)=="showext" )
             m_showExt = std::atoi(val.c_str())!=0;
+          else if( tolower(key)=="rotate" )
+            {
+              m_display->setRotation(atoi(val.c_str()));
+              const char *image = m_drive->getDiskImageFilename();
+              m_display->setCurrentImageName(image ? string(image) : "");
+            }
         }
 
       m_errorCode = E_OK;
