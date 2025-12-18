@@ -200,7 +200,7 @@ int VDrive::getFileNumBlocks(const char *name, bool convertNameToPETSCII)
   // find first non-DEL file that matches the pattern (same as LOAD would do)
   uint8_t *slot;
   do 
-    { slot = vdrive_dir_find_next_slot(&dir); }
+    { slot = vdrive_dir_find_next_slot_limited(&dir, 144); }
   while( slot && ((slot[SLOT_TYPE_OFFSET] & 0x07) == CBMDOS_FT_DEL) );
 
   return slot ? slot[SLOT_NR_BLOCKS] | (slot[SLOT_NR_BLOCKS + 1] << 8) : -1;

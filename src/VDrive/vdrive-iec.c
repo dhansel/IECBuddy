@@ -422,6 +422,9 @@ int vdrive_iec_open(vdrive_t *vdrive, const uint8_t *name, unsigned int length,
     cbmdos_cmd_parse_plus_t cmd_parse_stat;
     cbmdos_cmd_parse_plus_t *cmd_parse = &cmd_parse_stat;
 
+    /* 1541 ignores one CR at end of file name if file name is longer than one character */
+    if( VDRIVE_IS_1541(vdrive) && length>1 && name[length-1]==13 ) length--;
+
     if (cmd_parse_ext == NULL) {
         if ( name==NULL && p->mode != BUFFER_COMMAND_CHANNEL) {
             return SERIAL_NO_DEVICE;
