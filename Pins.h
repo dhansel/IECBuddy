@@ -52,12 +52,4 @@
 //#define PIN_ST7789_RES       26
 //#define PIN_ST7789_DC        27
 
-// Un-comment PIN_SSD1306* to support a SSD1306 OLED display
-// If enabled, the "Adafruit SSD1306" library must be installed in the Arduino IDE
-// GPIO 0/1, 4/5, 8/9,   12/13, 16/17, 20/21 use Wire0
-// GPIO 2/3, 6/7, 10/11, 14/15, 18/19, 27/27 use Wire1
-//#define PIN_SSD1306_WIRE     Wire1
-//#define PIN_SSD1306_I2C_SDA  26
-//#define PIN_SSD1306_I2C_SCL  27
-
 #endif

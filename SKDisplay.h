@@ -1,15 +1,32 @@
-#ifndef IECDISPLAY
-#define IECDISPLAY
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
 
+#ifndef SKDISPLAY
+#define SKDISPLAY
 
 #include <string>
 #include <stdint.h>
 
-class IECDisplay
+class SKDisplay
 {
  public:
-  IECDisplay();
-  virtual ~IECDisplay();
+  SKDisplay();
+  virtual ~SKDisplay();
 
   virtual void begin(uint32_t rotation);
 
@@ -34,7 +51,7 @@ class IECDisplay
   virtual bool     setBackgroundImage(const std::string &filename, bool doUpdate = true) { return false; }
   virtual bool     setBackgroundImageGIF(uint8_t *data, uint32_t size, int32_t x, int32_t y, bool doUpdate = true)  { return false; }
 
-  static IECDisplay *Create(std::string displayType);
+  static SKDisplay *Create(std::string displayType);
 
  protected:
   bool isErrorStatus(const char *statusMessage);
@@ -48,7 +65,6 @@ class IECDisplay
   int         m_progressWidth;
 };
 
-#include "IECDisplay_SSD1306.h"
-#include "IECDisplay_ST7789.h"
+#include "SKDisplay_ST7789.h"
 
 #endif

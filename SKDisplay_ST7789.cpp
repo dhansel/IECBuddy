@@ -1,4 +1,22 @@
-#include "IECDisplay_ST7789.h"
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
+
+#include "SKDisplay_ST7789.h"
 #ifdef SUPPORT_ST7789
 
 #include <Arduino_GFX_Library.h>
@@ -491,7 +509,7 @@ static int32_t gifRead(GIFFILE *handle, uint8_t *buffer, int32_t length);
 static void    gifDraw(GIFDRAW *pDraw);
 
 
-IECDisplay_ST7789::IECDisplay_ST7789()
+SKDisplay_ST7789::SKDisplay_ST7789()
 {
   Arduino_DataBus *bus = new Arduino_HWSPI(PIN_ST7789_DC, GFX_NOT_DEFINED, &PIN_ST7789_SPI);
   gpio_set_function(PIN_ST7789_SPI_SCL,  GPIO_FUNC_SPI);
@@ -501,13 +519,13 @@ IECDisplay_ST7789::IECDisplay_ST7789()
 }
 
 
-IECDisplay_ST7789::~IECDisplay_ST7789()
+SKDisplay_ST7789::~SKDisplay_ST7789()
 {
   delete m_display;
 }
 
 
-void IECDisplay_ST7789::begin(uint32_t rotation)
+void SKDisplay_ST7789::begin(uint32_t rotation)
 {
   m_display->begin(GFX_NOT_DEFINED /* SPI speed */, SPI_MODE3);
 
@@ -520,14 +538,14 @@ void IECDisplay_ST7789::begin(uint32_t rotation)
 }
 
 
-void IECDisplay_ST7789::setRotation(uint32_t rotation)
+void SKDisplay_ST7789::setRotation(uint32_t rotation)
 {
   m_display->fillRect(0, 0, m_display->width(), m_display->height(), RGB565_BLACK);
   m_display->setRotation((rotation/90)%4);
 }
 
 
-void IECDisplay_ST7789::showMessage(std::string msg)
+void SKDisplay_ST7789::showMessage(std::string msg)
 {
   // display "Searching..." message while finding disk image if button is pressed
   // this can rewrite any part of the display, "redraw" will automatically be called
@@ -539,7 +557,7 @@ void IECDisplay_ST7789::showMessage(std::string msg)
 }
 
 
-void IECDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileName)
+void SKDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileName)
 {
   // display "Sendingg/Receiving" message while transferring files over USB
   // this can rewrite any part of the display, "redraw" will automatically be called
@@ -554,7 +572,7 @@ void IECDisplay_ST7789::showTransmitMessage(std::string msg, std::string fileNam
 }
 
 
-void IECDisplay_ST7789::dispStatus(const string &s, bool clear)
+void SKDisplay_ST7789::dispStatus(const string &s, bool clear)
 {
   // display drive status (e.g. "00, OK, 00, 00")
   int color = RGB565_WHITE;
@@ -572,7 +590,7 @@ void IECDisplay_ST7789::dispStatus(const string &s, bool clear)
 }
 
 
-void IECDisplay_ST7789::dispImageName(const string &s, bool clear)
+void SKDisplay_ST7789::dispImageName(const string &s, bool clear)
 {
   // display name of currently mounted disk image
   m_display->setTextSize(3);
@@ -583,7 +601,7 @@ void IECDisplay_ST7789::dispImageName(const string &s, bool clear)
 }
 
 
-void IECDisplay_ST7789::dispFileName(const string &s, bool clear)
+void SKDisplay_ST7789::dispFileName(const string &s, bool clear)
 {
   // display name of file currently being loaded or saved
   m_display->setTextSize(3);
@@ -597,9 +615,9 @@ void IECDisplay_ST7789::dispFileName(const string &s, bool clear)
 }
 
 
-void IECDisplay_ST7789::setCurrentImageName(std::string iname)
+void SKDisplay_ST7789::setCurrentImageName(std::string iname)
 {
-  IECDisplay::setCurrentImageName(iname);
+  SKDisplay::setCurrentImageName(iname);
 
   if( iname.empty() )
     setBackgroundImage(DEFAULT_IMAGE);
@@ -614,28 +632,28 @@ void IECDisplay_ST7789::setCurrentImageName(std::string iname)
     }
 }
 
-void IECDisplay_ST7789::setCurrentFileName(std::string fname)
+void SKDisplay_ST7789::setCurrentFileName(std::string fname)
 {
-  IECDisplay::setCurrentFileName(fname);
+  SKDisplay::setCurrentFileName(fname);
   dispFileName(fname);
 }
 
 
-void IECDisplay_ST7789::setStatusMessage(std::string msg)
+void SKDisplay_ST7789::setStatusMessage(std::string msg)
 {
-  IECDisplay::setStatusMessage(msg);
+  SKDisplay::setStatusMessage(msg);
   dispStatus(msg);
 }
 
 
-void IECDisplay_ST7789::startProgress(int nbytestotal)
+void SKDisplay_ST7789::startProgress(int nbytestotal)
 {
-  IECDisplay::startProgress(nbytestotal);
+  SKDisplay::startProgress(nbytestotal);
   m_display->fillRect(0, m_display->height()-5, m_display->width(), 5, RGB565_BLACK);
 }
 
 
-void IECDisplay_ST7789::updateProgress(int nbytes)
+void SKDisplay_ST7789::updateProgress(int nbytes)
 {
   m_curFileBytesRead += nbytes;
 
@@ -673,13 +691,13 @@ void IECDisplay_ST7789::updateProgress(int nbytes)
 }
 
 
-void IECDisplay_ST7789::endProgress()
+void SKDisplay_ST7789::endProgress()
 {
   m_display->clearRegion(0, m_display->height()-5, m_display->width(), 5);
 }
 
 
-void IECDisplay_ST7789::redraw()
+void SKDisplay_ST7789::redraw()
 {
   m_display->clearDisplay();
   dispImageName(m_curImageName.empty() ? "<SD>" : m_curImageName.c_str(), false);
@@ -688,7 +706,7 @@ void IECDisplay_ST7789::redraw()
 }
 
 
-void IECDisplay_ST7789::showPrintStatus(bool printing)
+void SKDisplay_ST7789::showPrintStatus(bool printing)
 {
   static int spin = 0;
   static unsigned long spinto = 0;
@@ -715,25 +733,25 @@ void IECDisplay_ST7789::showPrintStatus(bool printing)
 }
 
 
-uint32_t IECDisplay_ST7789::startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
+uint32_t SKDisplay_ST7789::startImage(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
 {
   return m_display->startImage(x, y, w, h);
 }
 
 
-void IECDisplay_ST7789::addImageData(uint8_t *data, uint32_t dataSize)
+void SKDisplay_ST7789::addImageData(uint8_t *data, uint32_t dataSize)
 {
   m_display->addImageData((uint16_t *) data, dataSize/2);
 }
 
 
-void IECDisplay_ST7789::endImage()
+void SKDisplay_ST7789::endImage()
 {
   m_display->endImage();
 }
 
 
-bool IECDisplay_ST7789::setBackgroundImageGIF(uint8_t *data, uint32_t size, int32_t x, int32_t y, bool doUpdate)
+bool SKDisplay_ST7789::setBackgroundImageGIF(uint8_t *data, uint32_t size, int32_t x, int32_t y, bool doUpdate)
 {
   bool res = false;
 
@@ -759,7 +777,7 @@ bool IECDisplay_ST7789::setBackgroundImageGIF(uint8_t *data, uint32_t size, int3
 }
 
 
-bool IECDisplay_ST7789::setBackgroundImage(const string &fname, bool doUpdate)
+bool SKDisplay_ST7789::setBackgroundImage(const string &fname, bool doUpdate)
 {
   bool res = false;
 
@@ -789,7 +807,7 @@ bool IECDisplay_ST7789::setBackgroundImage(const string &fname, bool doUpdate)
 }
 
 
-bool IECDisplay_ST7789::setBackgroundImageRGB(const string &filename)
+bool SKDisplay_ST7789::setBackgroundImageRGB(const string &filename)
 {
   bool res = false;
 
@@ -816,7 +834,7 @@ bool IECDisplay_ST7789::setBackgroundImageRGB(const string &filename)
 }
 
 
-bool IECDisplay_ST7789::setBackgroundImageGIF(const string &fname)
+bool SKDisplay_ST7789::setBackgroundImageGIF(const string &fname)
 {
   bool res = false;
 

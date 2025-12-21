@@ -1,7 +1,25 @@
-#include "IECDrive.h"
-#include "IECPrinter.h"
-#include "IECDisplay.h"
-#include "IECConfig.h"
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
+
+#include "SKDrive.h"
+#include "SKPrinter.h"
+#include "SKDisplay.h"
+#include "SKConfig.h"
 #include "Pins.h"
 #include "src/IECDevice/IECBusHandler.h"
 #include "protocol.h"
@@ -61,10 +79,10 @@ static uint32_t getFreeHeap()
 // IEC bus device number
 #define DEVICE_NUMBER  8
 
-IECConfig   iecConfig;
-IECDrive    iecDrive(DEVICE_NUMBER, PIN_DRIVE_LED);
-IECPrinter  iecPrinter(4, PRINTDATAFILE);
-IECDisplay *iecDisplay = NULL;
+SKConfig   skConfig;
+SKDrive    skDrive(DEVICE_NUMBER, PIN_DRIVE_LED);
+SKPrinter  skPrinter(4, PRINTDATAFILE);
+SKDisplay *skDisplay = NULL;
 
 // if RESET pin is not defined, set it to 0xFF (not assigned)
 #ifndef PIN_IEC_RESET
@@ -153,7 +171,7 @@ void sendDriveStatus()
 #endif
 
   char buffer[255];
-  iecDrive.getStatus(buffer, 255);
+  skDrive.getStatus(buffer, 255);
   send_string(buffer);
 }
 
@@ -170,15 +188,15 @@ void execDriveCommand()
 #if DEBUG>0
       Serial1.printf("command: %s\r\n", cmd.c_str());
 #endif
-      if( iecDrive.getMountedImageName()==NULL )
-        iecDrive.execute(cmd.c_str());
+      if( skDrive.getMountedImageName()==NULL )
+        skDrive.execute(cmd.c_str());
       else
         {
           // execute command on SD card (not in currently mounted image)
-          string imageName(iecDrive.getMountedImageName());
-          iecDrive.unmountDiskImage();
-          iecDrive.execute(cmd.c_str());
-          iecDrive.mountDiskImage(imageName.c_str());
+          string imageName(skDrive.getMountedImageName());
+          skDrive.unmountDiskImage();
+          skDrive.execute(cmd.c_str());
+          skDrive.mountDiskImage(imageName.c_str());
         }
 
       send_status(ST_OK);
@@ -292,8 +310,8 @@ void sendFile()
           // send status
           if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-          iecDisplay->showTransmitMessage("Sending", fileName);
-          iecDisplay->startProgress(length);
+          skDisplay->showTransmitMessage("Sending", fileName);
+          skDisplay->startProgress(length);
 
           // send data
           uint8_t buf[1024];
@@ -326,7 +344,7 @@ void sendFile()
               if( status==ST_OK )
                 status = recv_status();
               
-              iecDisplay->updateProgress(i);
+              skDisplay->updateProgress(i);
               length -= i;
             }
 
@@ -335,7 +353,7 @@ void sendFile()
           file.close();
           s_modTime = 0;
 
-          iecDisplay->redraw();
+          skDisplay->redraw();
         }
       else
         {
@@ -414,8 +432,8 @@ void receiveFile()
               // send initial status
               if( !send_status(ST_OK) ) status = ST_COM_ERROR;
 
-              iecDisplay->showTransmitMessage("Receiving", fileName);
-              iecDisplay->startProgress(length);
+              skDisplay->showTransmitMessage("Receiving", fileName);
+              skDisplay->startProgress(length);
 
               // receive data
               uint8_t buf[1024];
@@ -455,7 +473,7 @@ void receiveFile()
                         status = ST_COM_ERROR;
                     }
                   
-                  iecDisplay->updateProgress(n);
+                  skDisplay->updateProgress(n);
                   length -= n;
                 }
               
@@ -469,7 +487,7 @@ void receiveFile()
               if( status!=ST_OK )
                 LittleFS.remove(fileName.c_str());
 
-              iecDisplay->redraw();
+              skDisplay->redraw();
             }
           else
             send_status(ST_WRITE_ERROR);
@@ -514,7 +532,7 @@ void mountDiskImage()
 
       // check whether a file with this name exists
       if( LittleFS.exists(fileName.c_str()) )
-        status = iecDrive.mountDiskImage(fileName.c_str()) ? ST_OK : ST_INVALID_FILE;
+        status = skDrive.mountDiskImage(fileName.c_str()) ? ST_OK : ST_INVALID_FILE;
       else
         status = ST_FILE_NOT_FOUND;
       
@@ -525,14 +543,14 @@ void mountDiskImage()
 
 void unmountDiskImage()
 {
-  iecDrive.unmountDiskImage();
+  skDrive.unmountDiskImage();
   send_status(ST_OK);
 }
 
 
 void getMountedDiskImage()
 {
-  const char *filename = iecDrive.getMountedImageName();
+  const char *filename = skDrive.getMountedImageName();
   send_string(filename ? filename : "");
 }
 
@@ -549,12 +567,12 @@ void setConfigValue()
 #if DEBUG>0
       Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
 #endif
-      iecConfig.setValue(key, value);
+      skConfig.setValue(key, value);
       if( key=="rotate" )
         {
-          iecDisplay->setRotation(atoi(value.c_str()));
-          const char *image = iecDrive.getMountedImageName();
-          iecDisplay->setCurrentImageName(image ? string(image) : "");
+          skDisplay->setRotation(atoi(value.c_str()));
+          const char *image = skDrive.getMountedImageName();
+          skDisplay->setCurrentImageName(image ? string(image) : "");
         }
       send_status(ST_OK);
     }
@@ -569,7 +587,7 @@ void getConfigValue()
   string key;
   if( recv_string(key) )
     {
-      string value = iecConfig.getValue(key);
+      string value = skConfig.getValue(key);
 #if DEBUG>0
       Serial1.printf("%s => %s\r\n", key.c_str(), value.c_str());
 #endif
@@ -580,7 +598,7 @@ void getConfigValue()
 
 void clearConfig()
 {
-  iecConfig.clear();
+  skConfig.clear();
   send_status(ST_OK);
 }
 
@@ -606,7 +624,7 @@ void showBitmap()
   if( status==ST_OK )
     {
       // startImage() returns number of bytes per pixel
-      uint32_t bpp    = iecDisplay->startImage(x, y, w, h);
+      uint32_t bpp    = skDisplay->startImage(x, y, w, h);
       uint32_t nbytes = w*h*bpp;
       uint8_t  buffer[1024];
 
@@ -619,7 +637,7 @@ void showBitmap()
           if( send_status(ST_OK) )
             {
               if( recv_data(n, buffer) )
-                iecDisplay->addImageData(buffer, n);
+                skDisplay->addImageData(buffer, n);
               else
                 status = ST_COM_ERROR;
             }
@@ -629,8 +647,8 @@ void showBitmap()
           nbytes -= n;
         }
 
-      iecDisplay->endImage();
-      iecDisplay->redraw();
+      skDisplay->endImage();
+      skDisplay->redraw();
     }
   
   send_status(status);
@@ -664,7 +682,7 @@ void showGIF()
             }
           
           if( status==ST_OK )
-            iecDisplay->setBackgroundImageGIF(buffer, size, x, y);
+            skDisplay->setBackgroundImageGIF(buffer, size, x, y);
 
           free(buffer);
         }
@@ -720,39 +738,37 @@ void setup()
   LittleFS.begin();
   LittleFS.setTimeCallback(mytime);
 
-  iecConfig.begin("/$CONFIG$");
+  skConfig.begin("/$CONFIG$");
 
   // setting fsformat==1 will format filesystem on reboot
-  if( iecConfig.getValue("fsformat")=="1" )
+  if( skConfig.getValue("fsformat")=="1" )
     {
       LittleFS.format();
-      iecConfig.clear();
+      skConfig.clear();
     }
 
-  string displayType = iecConfig.getValue("display");
+  string displayType = skConfig.getValue("display");
   if( displayType.empty() )
     {
-#if defined(SUPPORT_SSD1306)
-      displayType = "SSD1306";
-#elif defined(SUPPORT_ST7789)
+#if defined(SUPPORT_ST7789)
       displayType = "ST7789";
 #else
       displayType = "NONE";
 #endif
-      iecConfig.setValue("display", displayType);
+      skConfig.setValue("display", displayType);
     }
 
 #if DEBUG>0
   Serial1.printf("Display type: %s\r\n", displayType.c_str());
 #endif
-  iecDisplay = IECDisplay::Create(displayType);
+  skDisplay = SKDisplay::Create(displayType);
 
-  iecDisplay->begin(atoi(iecConfig.getValue("rotate").c_str()));
+  skDisplay->begin(atoi(skConfig.getValue("rotate").c_str()));
 
-  iecDrive.setConfig(&iecConfig);
-  iecDrive.setDisplay(iecDisplay);
-  iecPrinter.setConfig(&iecConfig);
-  iecPrinter.setDisplay(iecDisplay);
+  skDrive.setConfig(&skConfig);
+  skDrive.setDisplay(skDisplay);
+  skPrinter.setConfig(&skConfig);
+  skPrinter.setDisplay(skDisplay);
 
 #ifdef IEC_SUPPORT_PARALLEL
   iecBus.setParallelPins(PIN_PAR_FLAG2, PIN_PAR_PC2,
@@ -760,8 +776,8 @@ void setup()
                          PIN_PAR_PB4, PIN_PAR_PB5, PIN_PAR_PB6, PIN_PAR_PB7);
 #endif
 
-  iecBus.attachDevice(&iecDrive);
-  iecBus.attachDevice(&iecPrinter);
+  iecBus.attachDevice(&skDrive);
+  iecBus.attachDevice(&skPrinter);
   iecBus.begin();
 }
 

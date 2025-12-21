@@ -1,7 +1,25 @@
-#ifndef IECDISPLAY_ST7789
-#define IECDISPLAY_ST7789
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
 
-#include "IECDisplay.h"
+#ifndef SKDISPLAY_ST7789
+#define SKDISPLAY_ST7789
+
+#include "SKDisplay.h"
 #include "Pins.h"
 
 #ifdef PIN_ST7789_SPI
@@ -10,11 +28,11 @@
 
 class Arduino_ST7789m;
 
-class IECDisplay_ST7789 : public IECDisplay
+class SKDisplay_ST7789 : public SKDisplay
 {
  public:
-  IECDisplay_ST7789();
-  virtual ~IECDisplay_ST7789();
+  SKDisplay_ST7789();
+  virtual ~SKDisplay_ST7789();
 
   virtual void begin(uint32_t rotation);
 

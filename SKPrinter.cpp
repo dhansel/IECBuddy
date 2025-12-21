@@ -1,6 +1,24 @@
-#include "IECPrinter.h"
-#include "IECConfig.h"
-#include "IECDisplay.h"
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
+
+#include "SKPrinter.h"
+#include "SKConfig.h"
+#include "SKDisplay.h"
 
 #define DEBUG 0
 
@@ -18,18 +36,18 @@ static void print_hex(uint8_t data)
 #endif
 
 
-IECPrinter::IECPrinter(uint8_t devnum, const char *printerFileName) : IECDevice(devnum)
+SKPrinter::SKPrinter(uint8_t devnum, const char *printerFileName) : IECDevice(devnum)
 {
   m_printerFileName = printerFileName;
 }
 
 
-IECPrinter::~IECPrinter()
+SKPrinter::~SKPrinter()
 {
 }
 
 
-void IECPrinter::begin()
+void SKPrinter::begin()
 {
 #if DEBUG>0
   Serial.begin(115200);
@@ -50,26 +68,26 @@ void IECPrinter::begin()
 }
 
 
-void IECPrinter::listen(uint8_t secondary)
+void SKPrinter::listen(uint8_t secondary)
 {
   m_channel = secondary & 0x0F;
   m_data = -1;
 }
 
 
-int8_t IECPrinter::canWrite()
+int8_t SKPrinter::canWrite()
 {
   return m_data<0 ? 1 : -1;
 }
 
 
-void IECPrinter::write(uint8_t data, bool eoi)
+void SKPrinter::write(uint8_t data, bool eoi)
 {
   m_data = data;
 }
 
 
-void IECPrinter::task()
+void SKPrinter::task()
 {
   char buf[5];
 

@@ -1,6 +1,24 @@
-#include "IECDrive.h"
-#include "IECConfig.h"
-#include "IECDisplay.h"
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
+
+#include "SKDrive.h"
+#include "SKConfig.h"
+#include "SKDisplay.h"
 #include "Pins.h"
 #include <LittleFS.h>
 #include <algorithm>
@@ -67,7 +85,7 @@ static void diskChangeButtonFcn()
 }
 
 
-IECDrive::IECDrive(uint8_t devnum, uint8_t pinLED) :
+SKDrive::SKDrive(uint8_t devnum, uint8_t pinLED) :
   IECFileDevice(devnum)
 {
   m_pinLED = pinLED;
@@ -80,7 +98,7 @@ IECDrive::IECDrive(uint8_t devnum, uint8_t pinLED) :
 }
 
 
-void IECDrive::begin()
+void SKDrive::begin()
 {
   pinMode(PIN_BUTTON, INPUT_PULLUP);
   attachInterrupt(PIN_BUTTON, diskChangeButtonFcn, CHANGE);
@@ -124,7 +142,7 @@ void IECDrive::begin()
 }
 
 
-void IECDrive::task()
+void SKDrive::task()
 {
   // handle status LED
   if( m_pinLED<0xFF )
@@ -237,7 +255,7 @@ void IECDrive::task()
 
 
 #if defined(IEC_FP_EPYX) && defined(IEC_FP_EPYX_SECTOROPS)
-bool IECDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+bool SKDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 {
   bool res = false;
 
@@ -256,7 +274,7 @@ bool IECDrive::epyxReadSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 }
 
 
-bool IECDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
+bool SKDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 {
   bool res = false;
 
@@ -276,7 +294,7 @@ bool IECDrive::epyxWriteSector(uint8_t track, uint8_t sector, uint8_t *buffer)
 #endif
 
 
-string IECDrive::stripFileName(const char *cname)
+string SKDrive::stripFileName(const char *cname)
 {
   if( cname[0]=='@' ) cname++;
 
@@ -291,7 +309,7 @@ string IECDrive::stripFileName(const char *cname)
 }
 
 
-bool IECDrive::isHiddenFile(const char *name)
+bool SKDrive::isHiddenFile(const char *name)
 {
   if( name==NULL )
     return false;
@@ -303,7 +321,7 @@ bool IECDrive::isHiddenFile(const char *name)
 }
 
 
-uint8_t IECDrive::openDir(const char *name)
+uint8_t SKDrive::openDir(const char *name)
 {
   m_dir = LittleFS.openDir("/");
   m_dirOpen = true;
@@ -336,7 +354,7 @@ uint8_t IECDrive::openDir(const char *name)
 }
 
 
-bool IECDrive::readDir(uint8_t *data)
+bool SKDrive::readDir(uint8_t *data)
 {
   if( m_dirBufferPtr==m_dirBufferLen && m_dirOpen )
     {
@@ -426,7 +444,7 @@ bool IECDrive::readDir(uint8_t *data)
 }
 
 
-bool IECDrive::isMatch(const char *name, const char *pattern, uint8_t ftypes)
+bool SKDrive::isMatch(const char *name, const char *pattern, uint8_t ftypes)
 {
   signed char found = -1;
 
@@ -470,7 +488,7 @@ bool IECDrive::isMatch(const char *name, const char *pattern, uint8_t ftypes)
 }
 
 
-const char *IECDrive::findFile(const char *pattern, uint8_t ftypes)
+const char *SKDrive::findFile(const char *pattern, uint8_t ftypes)
 {
   bool found = false;
   static String name;
@@ -486,7 +504,7 @@ const char *IECDrive::findFile(const char *pattern, uint8_t ftypes)
 }
 
 
-uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
+uint8_t SKDrive::openFile(uint8_t channel, const char *constName)
 {
   uint8_t res = E_OK;
   uint8_t ftype = FT_PRG;
@@ -603,7 +621,7 @@ uint8_t IECDrive::openFile(uint8_t channel, const char *constName)
 }
 
 
-bool IECDrive::open(uint8_t channel, const char *name, uint8_t nameLen)
+bool SKDrive::open(uint8_t channel, const char *name, uint8_t nameLen)
 {
   if( m_drive->isOk() )
     {
@@ -652,7 +670,7 @@ bool IECDrive::open(uint8_t channel, const char *name, uint8_t nameLen)
 }
 
 
-uint8_t IECDrive::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi)
+uint8_t SKDrive::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool *eoi)
 {
   uint8_t n = 0;
 
@@ -678,7 +696,7 @@ uint8_t IECDrive::read(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, boo
 }
 
 
-uint8_t IECDrive::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi)
+uint8_t SKDrive::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bool eoi)
 {
   uint8_t n = 0;
 
@@ -702,7 +720,7 @@ uint8_t IECDrive::write(uint8_t channel, uint8_t *buffer, uint8_t bufferSize, bo
 }
 
 
-void IECDrive::close(uint8_t channel)
+void SKDrive::close(uint8_t channel)
 {
   if( m_drive->isFileOk(channel) )
     {
@@ -727,7 +745,7 @@ void IECDrive::close(uint8_t channel)
 }
 
 
-void IECDrive::executeData(const uint8_t *command, uint8_t len)
+void SKDrive::executeData(const uint8_t *command, uint8_t len)
 {
   // clear the status buffer so getStatus() is called again next time the buffer is queried
   clearStatus();
@@ -825,7 +843,7 @@ void IECDrive::executeData(const uint8_t *command, uint8_t len)
 }
 
 
-void IECDrive::execute(const char *command)
+void SKDrive::execute(const char *command)
 {
   // detect whether this is a "CD" command (with some flexibility in syntax), "cdcmd" will be
   //  0: if not a "CD" command
@@ -1005,7 +1023,7 @@ void IECDrive::execute(const char *command)
 }
 
 
-const char *IECDrive::getStatusMessage(uint8_t statusCode)
+const char *SKDrive::getStatusMessage(uint8_t statusCode)
 {
   const char *message = NULL;
 
@@ -1032,7 +1050,7 @@ const char *IECDrive::getStatusMessage(uint8_t statusCode)
 }
 
 
-uint8_t IECDrive::getStatusData(char *buffer, uint8_t bufferSize, bool *eoi)
+uint8_t SKDrive::getStatusData(char *buffer, uint8_t bufferSize, bool *eoi)
 { 
   // if we have an active VDrive then just return its status
   if( m_drive->isOk() )
@@ -1051,7 +1069,7 @@ uint8_t IECDrive::getStatusData(char *buffer, uint8_t bufferSize, bool *eoi)
 }
 
 
-void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
+void SKDrive::getStatus(char *buffer, uint8_t bufferSize)
 {
   const char *message = getStatusMessage(m_errorCode);
   uint8_t i = 0;
@@ -1075,7 +1093,7 @@ void IECDrive::getStatus(char *buffer, uint8_t bufferSize)
 }
 
 
-void IECDrive::unmountDiskImage()
+void SKDrive::unmountDiskImage()
 {
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
@@ -1085,7 +1103,7 @@ void IECDrive::unmountDiskImage()
 }
 
 
-bool IECDrive::mountDiskImage(const char *name)
+bool SKDrive::mountDiskImage(const char *name)
 {
   if( m_drive->isOk() )
     m_drive->closeDiskImage();
@@ -1098,13 +1116,13 @@ bool IECDrive::mountDiskImage(const char *name)
 }
 
 
-const char *IECDrive::getMountedImageName()
+const char *SKDrive::getMountedImageName()
 {
   return m_drive->getDiskImageFilename();
 }
 
 
-void IECDrive::reset()
+void SKDrive::reset()
 {
   unsigned long ledTestEnd = millis() + 250;
   setLEDState(LED_GREEN);
@@ -1131,7 +1149,7 @@ void IECDrive::reset()
 }
 
 
-void IECDrive::updateDisplayStatus()
+void SKDrive::updateDisplayStatus()
 {
   char buf[22];
   if( m_errorCode==E_VDRIVE )
@@ -1148,7 +1166,7 @@ void IECDrive::updateDisplayStatus()
 }
 
 
-void IECDrive::setLEDState(int color)
+void SKDrive::setLEDState(int color)
 {
   if( m_pinLED<0xFF ) 
     {

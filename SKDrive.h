@@ -1,5 +1,23 @@
-#ifndef IECDRIVE_H
-#define IECDRIVE_H
+// -----------------------------------------------------------------------------
+// Copyright (C) 2025 David Hansel
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have receikved a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software Foundation,
+// Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
+// -----------------------------------------------------------------------------
+
+#ifndef SKDRIVE_H
+#define SKDRIVE_H
 
 #include <string>
 #include <unordered_map>
@@ -13,13 +31,13 @@
 #define isalphanum(c) (isalpha(c) || isdigit(c))
 #endif
 
-class IECDisplay;
-class IECConfig;
+class SKDisplay;
+class SKConfig;
 
-class IECDrive : public IECFileDevice
+class SKDrive : public IECFileDevice
 {
  public: 
-  IECDrive(uint8_t devnum, uint8_t pinLED);
+  SKDrive(uint8_t devnum, uint8_t pinLED);
 
   virtual void getStatus(char *buffer, uint8_t bufferSize);
   virtual uint8_t getStatusData(char *buffer, uint8_t bufferSize, bool *eoi);
@@ -30,8 +48,8 @@ class IECDrive : public IECFileDevice
   bool mountDiskImage(const char *name);
   const char *getMountedImageName();
 
-  void setDisplay(IECDisplay *d) { m_display = d; }
-  void setConfig(IECConfig *c)   { m_config = c; }
+  void setDisplay(SKDisplay *d) { m_display = d; }
+  void setConfig(SKConfig *c)   { m_config = c; }
   void updateDisplayStatus();
 
  protected:
@@ -63,9 +81,9 @@ class IECDrive : public IECFileDevice
 
   void setLEDState(int color);
 
-  VDrive *m_drive;
-  IECDisplay *m_display;
-  IECConfig  *m_config;
+  VDrive    *m_drive;
+  SKDisplay *m_display;
+  SKConfig  *m_config;
 
   File m_file;
   Dir  m_dir;
