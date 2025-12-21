@@ -287,7 +287,7 @@ uint8_t *vdrive_dir_find_next_slot_limited(vdrive_dir_context_t *dir, int search
         /*
          * Load next(first) directory block ?
          */
-  
+
         dir->slot++;
 
         if (dir->slot >= 8) {
@@ -320,15 +320,6 @@ uint8_t *vdrive_dir_find_next_slot_limited(vdrive_dir_context_t *dir, int search
                 so it should always match for most uses. */
             if (t >= dir->time_low && t <= dir->time_high)
               {
-                /* if there were no wildcards then stop looking for more files
-                   after the first match (important if the directory has an endless loop) */
-                dir->find_nslot[dir->find_length]=0;
-                if( cbmdos_parse_wildcard_check(dir->find_nslot, dir->find_length)==0 )
-                  {
-                    dir->slot = 8;
-                    dir->buffer[0] = 0;
-                  }
-
                 return return_slot;
               }
         }
@@ -722,10 +713,18 @@ int vdrive_dir_next_directory(vdrive_t *vdrive, bufferinfo_t *b)
 {
     uint8_t *l, *p;
     int blocks, i;
+    int have_wildcard = cbmdos_parse_wildcard_check(b->dir.find_nslot, b->dir.find_length);
 
     b->small = 0;
 
     while ((p = vdrive_dir_find_next_slot(&b->dir))) {
+        /* if there were no wildcards then stop looking for more files
+           after the first match (important if the directory has an endless loop) */
+        if( !have_wildcard ) {
+            b->dir.slot = 8;
+            b->dir.buffer[0] = 0;
+          }
+
         if (p[SLOT_TYPE_OFFSET]) {
             l = b->buffer + b->bufptr;
 
