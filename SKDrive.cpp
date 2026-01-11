@@ -1042,7 +1042,7 @@ const char *SKDrive::getStatusMessage(uint8_t statusCode)
     case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
     case E_MEMEXE:               { message = "M-E NOT SUPPORTED"; break; }
     case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
-    case E_SPLASH:               { message = "IEC-DRIVE V0.1"; break; }
+    case E_SPLASH:               { message = "IEC-BUDDY V1.0"; break; }
     default:                     { message = "UNKNOWN"; break; }
     }
 
