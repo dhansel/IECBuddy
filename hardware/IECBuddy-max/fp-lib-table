@@ -1,0 +1,6 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "CBTD3861")(type "KiCad")(uri "${KIPRJMOD}/libraries/CBTD3861/CBTD3861.pretty")(options "")(descr ""))
+  (lib (name "MCU_RaspberryPi_and_Boards")(type "KiCad")(uri "${KIPRJMOD}/libraries/PiPico/MCU_RaspberryPi_and_Boards.pretty")(options "")(descr ""))
+  (lib (name "C64 IEC Connector")(type "KiCad")(uri "${KIPRJMOD}/libraries/IECConnector/C64_IEC.kicad.pretty")(options "")(descr ""))
+)

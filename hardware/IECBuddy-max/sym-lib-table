@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "MCU_RaspberryPi_and_Boards")(type "KiCad")(uri "${KIPRJMOD}/libraries/PiPico/MCU_RaspberryPi_and_Boards.kicad_sym")(options "")(descr ""))
+  (lib (name "rp2040-one")(type "KiCad")(uri "${KIPRJMOD}/libraries/PiPico/rp2040-one.kicad_sym")(options "")(descr ""))
+  (lib (name "rp2040-zero")(type "KiCad")(uri "${KIPRJMOD}/libraries/PiPico/rp2040-zero.kicad_sym")(options "")(descr ""))
+  (lib (name "CBTD3861")(type "KiCad")(uri "${KIPRJMOD}/libraries/CBTD3861/CBTD3861.kicad_sym")(options "")(descr ""))
+)
