@@ -91,7 +91,11 @@ Various components can be left out if desired:
 
 The IECBuddy Max variant has a much larger PCB layout and uses a Raspberry Pi Pico (version 1 or 2).
 It has all the features of the Mini version but also provides a connector for a parallel cable to be used
-with Dolphin Dos and Speed Dos.
+with Dolphin Dos and Speed Dos. Descriptions on how to make a compatible parallel cable can be found in
+various places over the internet, for example
+[here](https://github.com/dhansel/IECDevice/tree/main/hardware#user-port-breakout-board),
+[here](https://github.com/svenpetersen1965/1541-parallel-adapter-SpeedDOS)
+or [here](https://github.com/FraEgg/commodore-1541-parallel-port-adapter-c64-c128-speeddos-dolphindos)
 
 A Gerber file for PCB production can be downloaded [here]().
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
