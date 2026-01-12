@@ -58,7 +58,7 @@ You can skip the IEC1 connector if you solder the serial cable directly to the b
 
 ## IECBuddy Mini
 
-The Mini version is slightly larger than the Micro version and requires more components besides
+The Mini variant is slightly larger than the Micro version and requires more components besides
 the RP2040-One. As a result it comes with the following features that are not present in the smaller versions:
 
 First, it has space and connections on the PCB for a [0.96" TFT display](https://www.aliexpress.us/item/2251832810664524.html).
@@ -89,7 +89,7 @@ Various components can be left out if desired:
 
 ## IECBuddy Max
 
-The IECBuddy Max version has a much larger PCB layout and uses a Raspberry Pi Pico (version 1 or 2).
+The IECBuddy Max variant has a much larger PCB layout and uses a Raspberry Pi Pico (version 1 or 2).
 It has all the features of the Mini version but also provides a connector for a parallel cable to be used
 with Dolphin Dos and Speed Dos.
 
@@ -124,8 +124,14 @@ is easy:
 
 ## Firmware (source)
 
-To compile the firmware from source, simply download this GitHub repository and load the "IECBuddy.ino" 
-
-
-
-
+To compile the firmware from source follow these steps
+  - Download this GitHub repository
+  - Load the "IECBuddy.ino" file in the Arduino IDE
+  - Select the "Waveshare RP2040-One" board (or Raspberry Pi Pico 1 or 2 for the Max variant).
+  - Edit the "Pins.h" file to configure for your desired variant:
+    * For the Barebones and Micro variants no changes are required
+    * For the Mini or Max variants, un-comment the #defines for PIN_IEC_CLK_OUT and PIN_IEC_DATA_OUT
+  - If your build should support the ST7789 display then un-comment the PIN_ST7789_* defines. In that case you
+    also need to make sure the "Adafruit GFX Library" is installed. You can compile in the display support even
+    if you don't actually have a display.
+  - Plug in your RP2040-One or Pi Pico board and click the "upload" button in the Arduino IDE
