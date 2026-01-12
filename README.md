@@ -10,7 +10,7 @@ The IECBuddy comes in several different variants, with differing amounts of comp
 
 ## IECBuddy Barebones
 
-The barebones version is the simplest version, requiring only a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99)
+The barebones variant is the simplest version, requiring only a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99)
 board and a Commodore [serial cable/connector](https://www.c64-wiki.com/wiki/Serial_Port).
 
 Simply solder the serial cable to the RP2040-One as follows:
@@ -37,16 +37,15 @@ If you would prefer proper voltage conversion and line drivers then use the "Min
 
 ## IECBuddy Micro
 
-If you'd like a somewhat cleaner and more permanent build but still have a very small
-footprint and minimal component count, use the "IECBuddy Micro" PCB. You can either solder
+If you would like a somewhat cleaner and more permanent build but still want to go with a very small
+footprint and minimal component count, use the "IECBuddy Micro" variant. You can either solder
 the serial cable directly onto the board (connections are labeled on the board) or solder a 
 proper IEC connector onto the board and use a standard serial cable. This also comes with
 space for a pushbutton switch. No display though.
 
 The same caveats regarding voltage conversion and line drivers apply as described in the "Barebones" section above.
 
-You can download the Gerber file for the PCB here:
-
+A Gerber file for PCB production can be downloaded [here]().
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
@@ -69,6 +68,7 @@ Second, it uses 7406 and 74LVC04 ICs for voltage conversion and properly interfa
 This is very similar to the way original hardware (like the 1541) interfaces to the IEC bus. It also protects the RP2040
 from the possible overcurrent and overvoltage conditions described in the "Barebones" section above.
 
+A Gerber file for PCB production can be downloaded [here]().
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
@@ -93,6 +93,7 @@ The IECBuddy Max version has a much larger PCB layout and uses a Raspberry Pi Pi
 It has all the features of the Mini version but also provides a connector for a parallel cable to be used
 with Dolphin Dos and Speed Dos.
 
+A Gerber file for PCB production can be downloaded [here]().
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
