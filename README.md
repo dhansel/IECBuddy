@@ -10,15 +10,17 @@ The IECBuddy comes in several different variants, with differing amounts of comp
 
 ## IECBuddy Barebones
 
-The barebones variant is the simplest version, requiring no manufactured PCB, only a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99)
-board and a Commodore [serial cable](https://www.c64-wiki.com/wiki/Serial_Port). It can also be easily set up on a small breadboard:
+The barebones variant is the simplest version, requiring no manufactured PCB, just a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99)
+board and a Commodore [serial cable](https://www.c64-wiki.com/wiki/Serial_Port). Either solder the cable directly to the RP2040-One or set it up on a breadboard:
 
+<br>
   <div align="center">
-  <a href="images/IECBuddy-Barebones1.png"><img src="images/IECBuddy-Barebones1.png" width="400"></a>
-  <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy-Barebones2.png" width="400"></a>
+  <a href="images/IECBuddy-Barebones1.jpg"><img src="images/IECBuddy-Barebones1.jpg" height="300"></a>
+  <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy-Barebones2.jpg" height="300"></a>
   </div>
+<br>
 
-Simply connect the serial cable to the RP2040-One as follows:
+Connect the Commodore serial cable to the RP2040-One as follows:
 
 IEC Bus Pin | Signal   | RP2040-One
 ------------|----------|-----------
@@ -28,7 +30,7 @@ IEC Bus Pin | Signal   | RP2040-One
 4           | CLK      | 3 
 5           | DATA     | 4 
 6           | RESET    | 5 
-
+  
 Then upload the IECBuddy Micro firmware to the RP2040-One and you're good to go.
 Downsides are that there is no display and no "Disk Change" button.
 If you would like a "Disk Change" button, simply wire a pushbutton switch between pins GND and 8 on the RP2040-One.
@@ -64,8 +66,8 @@ You can skip the IEC1 connector if you solder the serial cable directly to the b
 ## IECBuddy Mini
 
   <div align="center">
-  <a href="images/IECBuddy-Mini1.png"><img src="images/IECBuddy-Mini1.png" width="400"></a>
-  <a href="images/IECBuddy-Mini2.jpg"><img src="images/IECBuddy-Mini2.png" width="400"></a>
+  <a href="images/IECBuddy-Mini1.jpg"><img src="images/IECBuddy-Mini1.jpg" height="300"></a>
+  <a href="images/IECBuddy-Mini2.jpg"><img src="images/IECBuddy-Mini2.jpg" height="300"></a>
   </div>
 
 The Mini variant is slightly larger than the Micro version and requires more components besides
@@ -108,7 +110,8 @@ various places over the internet, for example
 or [here](https://github.com/FraEgg/commodore-1541-parallel-port-adapter-c64-c128-speeddos-dolphindos)
 
   <div align="center">
-  <a href="images/IECBuddy-Max2.jpg"><img src="images/IECBuddy-Max2.png" width="800"></a>
+  <a href="images/IECBuddy-Max1.jpg"><img src="images/IECBuddy-Max1.jpg" height="300"></a>
+  <a href="images/IECBuddy-Max2.jpg"><img src="images/IECBuddy-Max2.jpg" height="300"></a>
   </div>
 
 A Gerber file for PCB production can be downloaded [here]().
