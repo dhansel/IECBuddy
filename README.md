@@ -14,7 +14,7 @@ DolphinDos and SpeedDos).
 
 
 The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
-  * [Barebones](IECBuddy-Barebones) (no PCB required)
+  * [Barebones](IECBuddy-Barebones) (no PCB, requires only a RP2040-One board)
   * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button)
   * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface)
   * [Max](IECBuddy-Max) (like Mini but with parallel cable connector)
@@ -130,8 +130,9 @@ Various components can be left out if desired:
 ## IECBuddy Max
 
 The IECBuddy Max variant has a much larger PCB layout and uses a Raspberry Pi Pico (version 1 or 2).
-It has all the features of the Mini version but also provides a connector for a parallel cable to be used
-with Dolphin Dos and Speed Dos. Descriptions on how to make a compatible parallel cable can be found in
+It has all the features of the Mini version and additionally a second IEC port for daisy-chaining 
+and a connector for a parallel cable to be used with Dolphin Dos and Speed Dos.
+Descriptions on how to make a compatible parallel cable and user port connector can be found in
 various places over the internet, for example
 [here](https://github.com/dhansel/IECDevice/tree/main/hardware#user-port-breakout-board),
 [here](https://github.com/svenpetersen1965/1541-parallel-adapter-SpeedDOS)
@@ -162,28 +163,16 @@ IEC1       | [IEC Bus Connector (6 Pin)](https://www.aliexpress.us/item/32568071
 Parallel1, Parallel2 | [10-position IDC Connector](https://www.digikey.com/en/products/detail/on-shore-technology-inc/302-S101/2178422)
 
 
-## Firmware (pre-compiled)
+## Uploading the firmware
 
-Pre-compiled versions of the firmware are available for all four versions of the IECBuddy. Programming the 2040
-is easy:
-  - Download the UF2 file appropriate for your version of the board:
-    * Barebones and Micro (and Mini if built without the bus driver ICs): IECBuddyMicro.uf2
-    * Mini: IECBuddyMini.uf2
-    * Max: IECBuddyMax.uf2
-  - Plug the RP2040-One into one of your computer's USB port, this should automatically mount as a new drive.
-  - Copy the downloaded UF2 file to the root directory of the drive.
-  - Disconnect the RP2040-One from your computer.
+Pre-compiled versions of the firmware are available for all four versions of the IECBuddy. Programming the 2040 is easy:
+  1) Download the UF2 file appropriate for your version of the board:
+     - Barebones and Micro: [IECBuddyMicro.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro.uf2) (also for Mini if if not using the bus driver ICs)
+     - Mini: [IECBuddyMini.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini.uf2)
+     - Max using PiPico 1: [IECBuddyMax1.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax1.uf2)
+     - Max using PiPico 2: [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax2.uf2)
+  2) Plug the RP2040-One into one of your computer's USB ports. This should automatically mount a new drive.
+  3) Copy the downloaded UF2 file to the root directory of the drive.
+  4) Disconnect the RP2040-One from your computer.
 
-## Firmware (source)
-
-To compile the firmware from source follow these steps
-  - Download this GitHub repository
-  - Load the "IECBuddy.ino" file in the Arduino IDE
-  - Select the "Waveshare RP2040-One" board (or Raspberry Pi Pico 1 or 2 for the Max variant).
-  - Edit the "Pins.h" file to configure for your desired variant:
-    * For the Barebones and Micro variants no changes are required
-    * For the Mini or Max variants, un-comment the #defines for PIN_IEC_CLK_OUT and PIN_IEC_DATA_OUT
-  - If your build should support the ST7789 display then un-comment the PIN_ST7789_* defines. In that case you
-    also need to make sure the "Adafruit GFX Library" is installed. You can compile in the display support even
-    if you don't actually have a display.
-  - Plug in your RP2040-One or Pi Pico board and click the "upload" button in the Arduino IDE
+If you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md).
