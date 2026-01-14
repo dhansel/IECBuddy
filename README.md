@@ -4,7 +4,14 @@ IECBuddy is a USB plug-in for the [C64 RAD Expansion Unit](https://github.com/fr
 access to the C64's IEC bus. The IECBuddy is based on my [IECDevice](https://github.com/dhansel/IECDevice)
 and [VDrive](https://github.com/dhansel/VDrive) libraries, allowing the RAD to support various disk image 
 formats (D64, G64, D71, D81) and fast-load protocols (JiffyDos, Epyx FastLoad, Final Cartridge 3, Action Replay 6,
-DolphinDos, SpeedDos).
+DolphinDos and SpeedDos).
+
+<br>
+  <div align="center">
+  <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy.jpg" height="300"></a>
+  </div>
+<br>
+
 
 The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
   * [Barebones](IECBuddy-Barebones) (no PCB required)
