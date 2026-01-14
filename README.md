@@ -59,6 +59,13 @@ If you would prefer proper voltage conversion and line drivers then use the "Min
 
 ## IECBuddy Micro
 
+<br>
+  <div align="center">
+  <a href="images/IECBuddy-Barebones1.jpg"><img src="images/IECBuddy-Micro1.jpg" height="300"></a>
+  <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy-Micro2.jpg" height="300"></a>
+  </div>
+<br>
+
 If you would like a somewhat cleaner and more permanent build but still want to go with a very small
 footprint and minimal component count, use the "IECBuddy Micro" variant. You can either solder
 the serial cable directly onto the board (connections are labeled on the board) or solder a 
