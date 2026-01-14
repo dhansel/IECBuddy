@@ -240,7 +240,7 @@ int main(int argc, char** argv)
 
       if (cmd == "ls" || cmd == "dir")
         cmdDir(argc - firstarg, argv + firstarg);
-      else if (argc > firstarg + 1 && (cmd == "rm" || cmd == "del" || cmd == "delete"))
+      else if (argc > firstarg && (cmd == "rm" || cmd == "del" || cmd == "delete"))
         cmdDelete(argc - firstarg, argv + firstarg);
       else if (argc > firstarg + 1 && (cmd == "cp" || cmd == "copy"))
         cmdCopy(argc - firstarg, argv + firstarg);
