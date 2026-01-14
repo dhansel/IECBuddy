@@ -6,7 +6,15 @@ and [VDrive](https://github.com/dhansel/VDrive) libraries, allowing the RAD to s
 formats (D64, G64, D71, D81) and fast-load protocols (JiffyDos, Epyx FastLoad, Final Cartridge 3, Action Replay 6,
 DolphinDos, SpeedDos).
 
-The IECBuddy comes in several different variants, with differing amounts of components and build effort required:
+The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
+  * [Barebones](IECBuddy-Barebones) (no PCB required)
+  * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button)
+  * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface)
+  * [Max](IECBuddy-Max) (like Mini but with parallel cable connector)
+
+All variants can plug directly into a RAD powered by a Raspberry Pi 3. If your RAD uses a Raspberry Pi Zero then 
+you will need [an adapter cable](https://www.raspberrypi.com/products/micro-usb-male-to-usb-a-female-cable/) 
+to connect the IECBuddy since the Zero only has a micro-USB port.
 
 ## IECBuddy Barebones
 
