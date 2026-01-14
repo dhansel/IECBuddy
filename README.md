@@ -74,7 +74,10 @@ space for a pushbutton switch. No display though.
 
 The same caveats regarding voltage conversion and line drivers apply as described in the "Barebones" section above.
 
-A Gerber file for PCB production can be downloaded [here]().
+A Gerber file for PCB production can be downloaded [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-micro-gerber.zip).<br>
+A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-micro-schematic.pdf).<br>
+KiCad files for the board are [here](hardware/IECBuddy-micro).
+
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
@@ -102,7 +105,10 @@ Second, it uses 7406 and 74LVC04 ICs for voltage conversion and properly interfa
 This is very similar to the way original hardware (like the 1541) interfaces to the IEC bus. It also protects the RP2040
 from the possible overcurrent and overvoltage conditions described in the "Barebones" section above.
 
-A Gerber file for PCB production can be downloaded [here]().
+A Gerber file for PCB production can be downloaded [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-mini-gerber.zip).<br>
+A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-mini-schematic.pdf).<br>
+KiCad files for the board are [here](hardware/IECBuddy-mini).
+
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
@@ -136,7 +142,10 @@ or [here](https://github.com/FraEgg/commodore-1541-parallel-port-adapter-c64-c12
   <a href="images/IECBuddy-Max2.jpg"><img src="images/IECBuddy-Max2.jpg" height="300"></a>
   </div>
 
-A Gerber file for PCB production can be downloaded [here]().
+A Gerber file for PCB production can be downloaded [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-max-gerber.zip).<br>
+A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-max-schematic.pdf).<br>
+KiCad files for the board are [here](hardware/IECBuddy-max).
+
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
