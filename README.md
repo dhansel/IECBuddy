@@ -180,10 +180,11 @@ Pre-compiled versions of the firmware are available for all four versions of the
      - Max using PiPico 2: [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax2.uf2)
   2) Connect the RP2040-One to your computer in "boot" mode. This can be done in two ways:
      - Connect the RP2040-One to the computer **while holding down the "Boot" button on the device**. Note that this can be tricky
-       for the Mini version if you have already soldered on the display since the display obstructs access to the RP2040-One.
-     - Connect the RP2040-One to the computer. This will register a new serial (COM) port on your computer. 
-       Then open a terminal program (e.g. TeraTerm, Putty or even the serial monitor in the Arduino IDE) and connect to the new COM
-       port with a baud rate of 1200.
+       for the Mini version if you have already soldered the display since the display obstructs access to the RP2040-One.
+     - Connect the RP2040-One to the computer. This will register a new serial (COM) port on your computer.
+       Download [SKTool.exe](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/SKTool/SKTool.exe) and run it with the following parameters: `SKTool -p COMx boot` (where COMx is the new COM port).
+       Alternatively, start a terminal program (e.g. TeraTerm, Putty or even the serial monitor in the Arduino IDE) and connect
+       to the new COM port with a baud rate of 1200.
      As a result of either of these, your computer should now show a new external drive.
   3) Copy the downloaded UF2 file to the root directory of the new drive.
   4) Disconnect the RP2040-One from your computer.
