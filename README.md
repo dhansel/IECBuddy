@@ -4,14 +4,14 @@ IECBuddy is a USB plug-in for the [C64 RAD Expansion Unit](https://github.com/fr
 access to the C64's IEC bus. The IECBuddy is based on my [IECDevice](https://github.com/dhansel/IECDevice)
 and [VDrive](https://github.com/dhansel/VDrive) libraries, allowing the RAD to support various disk image 
 formats (D64, G64, D71, D81) and fast-load protocols (JiffyDos, Epyx FastLoad, Final Cartridge 3, Action Replay 6,
-DolphinDos and SpeedDos).
+DolphinDos and SpeedDos). Additionally, the IECBuddy acts as a virtual printer. Printed content can be viewed
+on the C64 screen from within the RAD menu.
 
 <br>
   <div align="center">
   <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy.jpg" height="300"></a>
   </div>
 <br>
-
 
 The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
   * [Barebones](IECBuddy-Barebones) (no PCB, requires only a RP2040-One board)
@@ -22,6 +22,9 @@ The IECBuddy comes in four different variants, with differing amounts of compone
 All variants can plug directly into a RAD powered by a Raspberry Pi 3. If your RAD uses a Raspberry Pi Zero then 
 you will need [an adapter cable](https://www.raspberrypi.com/products/micro-usb-male-to-usb-a-female-cable/) 
 to connect the IECBuddy since the Zero only has a micro-USB port.
+
+To build an IECBuddy, select and build whichever variant appeals to you and then follow the instructions in the
+[Uplodading the firmware](#uploading-the-firmware) section below.
 
 ## IECBuddy Barebones
 
@@ -127,6 +130,9 @@ Various components can be left out if desired:
   * You can leave out the ST7789 display if you don't want a display.
   * If you don't want to use the IEC bus driver ICs then you can place solder on the JP1-JP5 solder jumpers and leave out R1-R4, C1, C2, U2 and U3 (in this case use the IECBuddyMicro.uf2 firmware).
 
+I recommend uploading the firmware **before** soldering on the display. The display sits on top of the RP2040-One
+makes accessing the "Boot" button (required for firmware upload) tricky - still possible, but a bit fiddly.
+
 ## IECBuddy Max
 
 The IECBuddy Max variant has a much larger PCB layout and uses a Raspberry Pi Pico (version 1 or 2).
@@ -166,13 +172,45 @@ Parallel1, Parallel2 | [10-position IDC Connector](https://www.digikey.com/en/pr
 ## Uploading the firmware
 
 Pre-compiled versions of the firmware are available for all four versions of the IECBuddy. Programming the 2040 is easy:
+
   1) Download the UF2 file appropriate for your version of the board:
      - Barebones and Micro: [IECBuddyMicro.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro.uf2) (also for Mini if if not using the bus driver ICs)
      - Mini: [IECBuddyMini.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini.uf2)
      - Max using PiPico 1: [IECBuddyMax1.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax1.uf2)
      - Max using PiPico 2: [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax2.uf2)
-  2) Plug the RP2040-One into one of your computer's USB ports. This should automatically mount a new drive.
-  3) Copy the downloaded UF2 file to the root directory of the drive.
+  2) Connect the RP2040-One to your computer in "boot" mode. This can be done in two ways:
+     - Connect the RP2040-One to the computer **while holding down the "Boot" button on the device**. Note that this can be tricky
+       for the Mini version if you have already soldered on the display since the display obstructs access to the RP2040-One.
+     - Connect the RP2040-One to the computer. This will register a new serial (COM) port on your computer. 
+       Then open a terminal program (e.g. TeraTerm, Putty or even the serial monitor in the Arduino IDE) and connect to the new COM
+       port with a baud rate of 1200.
+     As a result of either of these, your computer should now show a new external drive.
+  3) Copy the downloaded UF2 file to the root directory of the new drive.
   4) Disconnect the RP2040-One from your computer.
 
 If you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md).
+
+## Usage
+
+When it is connected to the RAD (via USB) and C64 (via serial cable), the IECBuddy behaves like a disk drive.
+The initial device number is 8 but can be configured from within the RAD menu system.
+
+Loading the directory shows all files and disk images currently on the IECBuddy file system. You can use "CD"
+to enter and exit disk images. If you have a DOS wedge (like in JiffyDos), `@CD:GAMES.D64` will enter the GAMES.D64
+Disk image, `@CD/` will exit the image and go back to the top-level directory. If you do not have a DOS wedge, 
+doing a `LOAD"GAMES.D64",8` will automatically switch into the GAMES.D64 disk image and load its directory,
+`LOAD"/",8` will return to the top level.
+
+If desired, a new disk image can be created by using the "N" command, for examplem, executing `@N:GAMES2.D64`
+in the top-level dierctory will create a new disk image named GAMES2.D64.
+
+Files (either PRG files or disk images) can be copied between the IECBuddy and the RAD's SD card via the RAD menu system.
+
+The IECBuddy also emulates a printer, more specifically a STAR NL-10 printer with device number 4. The STAR NL-10 was
+compatible with Commodore MPS-801 commands as well as the EPSON FX-80 command set. Much of the existing C64 software
+supports either one of these (if not specifically the NL-10) and should therefore be compatible.
+
+After printing, enter the RAD menu to see a preview of the printout and/or copy a BMP or PDF version of the printed
+content to the RAD's SD card.
+
+For more information on the RAD menu structure relating to the IECBuddy see [here]().
