@@ -4,7 +4,7 @@
 #include <vector>
 #include <string.h>
 
-#include "../protocol.h"
+#include "../IECBuddy/protocol.h"
 #include "commfun.h"
 #include "utilfun.h"
 
@@ -16,12 +16,13 @@
 void printUsage()
 {
   printf("Usage: SKTool [-p COMx] dir|ls|rm|del|delete|cp|copy\n\n"
-         "       SKTool ls|dir [patterns]            Display directory of files on IECDevice\n"
-         "       SKTool rm|del patterns              Delete files matching pattern on IECDevice\n"
-         "       SKTool cp|copy [-f] patterns SK:    Copy local files matching pattern to IECDevice\n"
-         "       SKTool cp|copy [-f] patterns dir    Copy IECDevice files matching pattern to local directory dir\n"
-         "       SKTool cp|copy [-f] name1 SK:name2  Copy local file name1 to IECDevice as name2\n"
-         "       SKTool cp|copy [-f] name1 name2     Copy IECDevice file file name1 to local file name2\n\n"
+         "       SKTool ls|dir [patterns]            Display directory of files on IECBuddy\n"
+         "       SKTool rm|del patterns              Delete files matching pattern on IECBuddy\n"
+         "       SKTool cp|copy [-f] patterns SK:    Copy local files matching pattern to IECBuddy\n"
+         "       SKTool cp|copy [-f] patterns dir    Copy IECBuddy files matching pattern to local directory dir\n"
+         "       SKTool cp|copy [-f] name1 SK:name2  Copy local file name1 to IECBuddy as name2\n"
+         "       SKTool cp|copy [-f] name1 name2     Copy IECBuddy file file name1 to local file name2\n"
+         "       SKTool boot                         Switch IECBuddy to boot mode for firmware upload\n\n"
          "       If -p COMx is given then use port COMx, otherwise auto-detect\n"
          "       If -f is given for cp/copy then overwrite destination file if it exists\n"
          "       File name patterns can include '*' and '?' with their usual meaning.\n");
@@ -226,14 +227,36 @@ int main(int argc, char** argv)
   int firstarg = 1;
   const char* comPort = NULL;
 
-  if (argc > firstarg + 1 && strcmp(argv[firstarg], "-p") == 0)
+  if( argc > firstarg + 1 && strcmp(argv[firstarg], "-p") == 0 )
     {
       comPort = argv[2];
       firstarg += 2;
     }
 
-  if (argc <= firstarg)
-    printUsage();
+  if(argc <= firstarg)
+    {
+      printUsage();
+    }
+  else if( strcmp(argv[firstarg], "boot")==0 )
+    {
+      string port;
+      if( comPort==NULL ) 
+        {
+          port = autodetectPort();
+          if( port.empty() ) 
+            printf("No port specified and autodetect failed.\n");
+          else
+            printf("Found IECBuddy on port %s\n", port.c_str());
+        }
+      else
+        port = comPort;
+
+      if( !port.empty() )
+        {
+          printf("Switching IECBuddy on port '%s' to boot mode.\n", port.c_str());
+          comResetToBoot(port);
+        }
+    }
   else if (comOpen(comPort) == 0)
     {
       string cmd = argv[firstarg++];
@@ -250,7 +273,7 @@ int main(int argc, char** argv)
       comClose();
     }
   else if (comPort == NULL)
-    printf("Unable to find COM port for IECDevice.\n");
+    printf("Unable to find COM port for IECBuddy.\n");
   else
     printf("Error opening port: %s\n", comPort);
 

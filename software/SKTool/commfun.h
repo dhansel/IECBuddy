@@ -36,4 +36,7 @@ StatusType sendGIF(const string &fname, int32_t x, int32_t y);
 
 StatusType reboot();
 
+string autodetectPort();
+bool comResetToBoot(string port);
+
 #endif

@@ -131,13 +131,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\protocol.cpp" />
+    <ClCompile Include="..\IECBuddy\protocol.cpp" />
     <ClCompile Include="commfun.cpp" />
     <ClCompile Include="SKTool.cpp" />
     <ClCompile Include="utilfun.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\protocol.h" />
+    <ClInclude Include="..\IECBuddy\protocol.h" />
     <ClInclude Include="ceserial.h" />
     <ClInclude Include="commfun.h" />
     <ClInclude Include="utilfun.h" />

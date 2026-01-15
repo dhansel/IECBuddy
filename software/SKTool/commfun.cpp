@@ -1,7 +1,7 @@
 #include "commfun.h"
 #include "utilfun.h"
 #include "ceserial.h"
-#include "../protocol.h"
+#include "../IECBuddy/protocol.h"
 #include <sstream>
 #include <vector>
 #include <string>
@@ -137,7 +137,7 @@ int comOpen(const char *port)
         return -1;
       else
         {
-          printf("Found IECDevice on port %s\n", portName.c_str());
+          printf("Found IECBuddy on port %s\n", portName.c_str());
           com.SetPortName(portName);
           return com.Open();
         }
@@ -813,4 +813,27 @@ StatusType sendGIF(const string &fname, int32_t x, int32_t y)
     free(buffer);
 
   return status;
+}
+
+
+bool comResetToBoot(string port)
+{
+  ceSerial com;
+
+#ifdef WIN32
+  if( !port.empty() && port[0]!='\\' ) port = "\\\\.\\" + port;
+#else
+  if( !port.empty() && port[0]!='/' ) port = "/dev/" + port;
+#endif
+
+  printf("%s\n", port.c_str());
+  com.SetPortName(port);
+  com.SetBaudRate(1200);
+  if( com.Open()==0 )
+    {
+      com.Close();
+      return true;
+    }
+  else
+    return false;
 }

@@ -9,14 +9,14 @@ SKTool.exe: SKTool.oo commfun.oo utilfun.oo protocol.oo
 SKTool.oo: SKTool.cpp commfun.h utilfun.h
 	g++ -c SKTool.cpp -o SKTool.oo
 
-commfun.oo: commfun.cpp commfun.h ceserial.h ../protocol.h
+commfun.oo: commfun.cpp commfun.h ceserial.h ../IECBuddy/protocol.h
 	g++ -c commfun.cpp -o commfun.oo
 
 utilfun.oo: utilfun.cpp utilfun.h
 	g++ -c utilfun.cpp -o utilfun.oo
 
-protocol.oo: ../protocol.cpp ../protocol.h
-	g++ -c ../protocol.cpp -o protocol.oo
+protocol.oo: ../IECBuddy/protocol.cpp ../IECBuddy/protocol.h
+	g++ -c ../IECBuddy/protocol.cpp -o protocol.oo
 
 clean:
 	rm -f *.oo *.o *~ *.exe

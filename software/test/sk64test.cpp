@@ -4,7 +4,7 @@
 #include <vector>
 #include <string.h>
 
-#include "../protocol.h"
+#include "../IECBuddy/protocol.h"
 #include "../SKTool/commfun.h"
 #include "../SKTool/utilfun.h"
 
