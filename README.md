@@ -215,3 +215,6 @@ After printing, enter the RAD menu to see a preview of the printout and/or copy 
 content to the RAD's SD card.
 
 For more information on the RAD menu structure relating to the IECBuddy see [here]().
+
+As an alternative to copying files via the RAD menu interface you can use connect the IECBuddy to your PC 
+and use [SKTool](software/SKTool) to manage the files directly.
