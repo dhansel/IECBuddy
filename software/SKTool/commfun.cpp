@@ -826,7 +826,6 @@ bool comResetToBoot(string port)
   if( !port.empty() && port[0]!='/' ) port = "/dev/" + port;
 #endif
 
-  printf("%s\n", port.c_str());
   com.SetPortName(port);
   com.SetBaudRate(1200);
   if( com.Open()==0 )
