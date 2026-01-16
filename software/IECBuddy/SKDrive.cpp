@@ -122,7 +122,8 @@ void SKDrive::begin()
   // read configuration settings
   int d = std::atoi(m_config->getValue("device").c_str());
   if( d>=8 && d<=15 && d!=m_devnr ) setDeviceNumber(d);
-  m_diskFlushTimeout = std::atoi(m_config->getValue("diskflush").c_str());
+  string s = m_config->getValue("diskflush");
+  m_diskFlushTimeout = s.empty() ? 500 : std::atoi(s.c_str());
   m_showExt = std::atoi(m_config->getValue("showext").c_str())!=0;
 
   m_display->redraw();
