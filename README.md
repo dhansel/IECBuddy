@@ -212,7 +212,6 @@ To enter the [IECBuddy submenu](https://github.com/frntc/RAD#iecbuddy-submenu) o
 <br>
   <div align="center">
   <a href="images/IECBuddy-transfer.jpg"><img src="images/IECBuddy-transfer.jpg" height="300"></a>
-  <a href="images/IECBuddy-print.jpg"><img src="images/IECBuddy-print.jpg" height="300"></a>
   </div>
 <br>
 
@@ -222,6 +221,12 @@ supports either one of these (if not specifically the NL-10) and should therefor
 
 After printing, enter the RAD menu to see a preview of the printout and/or copy a BMP or PDF version of the printed
 content to the RAD's SD card.
+
+<br>
+  <div align="center">
+  <a href="images/IECBuddy-print.jpg"><img src="images/IECBuddy-print.jpg" height="300"></a>
+  </div>
+<br>
 
 For more information on the RAD menu structure relating to the IECBuddy see [here](https://github.com/frntc/RAD#iecbuddy-submenu).
 
