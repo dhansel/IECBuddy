@@ -9,7 +9,8 @@ on the C64 screen from within the RAD menu.
 
 <br>
   <div align="center">
-  <a href="images/IECBuddy-Barebones2.jpg"><img src="images/IECBuddy.jpg" height="300"></a>
+  <a href="images/IECBuddy.jpg"><img src="images/IECBuddy.jpg" height="300"></a>
+  <a href="images/IECBuddy-transfer.jpg"><img src="images/IECBuddy-transfer.jpg" height="300"></a>
   </div>
 <br>
 
@@ -49,7 +50,7 @@ IEC Bus Pin | Signal   | RP2040-One
 5           | DATA     | 4 
 6           | RESET    | 5 
   
-Then upload the IECBuddy Micro firmware to the RP2040-One and you're good to go.
+Then [upload the IECBuddy](#uploading-the-firmware)  Micro firmware to the RP2040-One and you're good to go.
 Downsides are that there is no display and no "Disk Change" button.
 If you would like a "Disk Change" button, simply wire a pushbutton switch between pins GND and 8 on the RP2040-One.
 
@@ -206,6 +207,14 @@ If desired, a new disk image can be created by using the "N" command, for exampl
 in the top-level dierctory will create a new disk image named GAMES2.D64.
 
 Files (either PRG files or disk images) can be copied between the IECBuddy and the RAD's SD card via the RAD menu system.
+To enter the [IECBuddy submenu](https://github.com/frntc/RAD#iecbuddy-submenu) on the RAD, press "I" within the RAD main menu.
+
+<br>
+  <div align="center">
+  <a href="images/IECBuddy-transfer.jpg"><img src="images/IECBuddy-transfer.jpg" height="300"></a>
+  <a href="images/IECBuddy-print.jpg"><img src="images/IECBuddy-print.jpg" height="300"></a>
+  </div>
+<br>
 
 The IECBuddy also emulates a printer, more specifically a STAR NL-10 printer with device number 4. The STAR NL-10 was
 compatible with Commodore MPS-801 commands as well as the EPSON FX-80 command set. Much of the existing C64 software
@@ -214,7 +223,7 @@ supports either one of these (if not specifically the NL-10) and should therefor
 After printing, enter the RAD menu to see a preview of the printout and/or copy a BMP or PDF version of the printed
 content to the RAD's SD card.
 
-For more information on the RAD menu structure relating to the IECBuddy see [here]().
+For more information on the RAD menu structure relating to the IECBuddy see [here](https://github.com/frntc/RAD#iecbuddy-submenu).
 
 As an alternative to copying files via the RAD menu interface you can use connect the IECBuddy to your PC 
 and use [SKTool](software/SKTool) to manage the files directly.
