@@ -190,7 +190,8 @@ Pre-compiled versions of the firmware are available for all four versions of the
   3) Copy the downloaded UF2 file to the root directory of the new drive.
   4) Disconnect the RP2040-One from your computer.
 
-If you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md).
+If you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md). This can be useful
+if you want to use a different RP2040 board, possibly with more flash memory for the file system.
 
 ## Usage
 
