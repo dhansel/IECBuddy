@@ -9,6 +9,7 @@ If you would like to compile the firmware from source then follow these steps:
   4) In the Tools->Flash Size menu, select the following option:
      - For Waveshare RP2040-One or Raspberry Pi Pico 2: "4MB (Sketch 1MB, FS 3MB)"
      - For Raspberry Pi Pico 1: "2MB (Sketch 1MB, FS 1MB)"
+     - If you are using a RP2040 clone with more flash then select the option that provides the most FS space possible, just leave 1MB for the sketch.
   6) Edit the "Pins.h" file to configure for your desired variant:
      - For the Barebones and Micro variants no changes are required
      - For the Mini or Max variants, un-comment the #defines for PIN_IEC_CLK_OUT and PIN_IEC_DATA_OUT
