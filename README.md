@@ -199,7 +199,7 @@ Parallel1, Parallel2 | [10-position IDC Connector](https://www.digikey.com/en/pr
 Pre-compiled versions of the firmware are available for all four versions of the IECBuddy and a variety of RP2040 modules. 
 
 If your RP2040 module is included in the table below then programming is trivial. First, download the UF2 file appropriate for your IECBuddy variant and RP2040 module
-(n/a in the table means not supported because the RP2040 module does not match the PCB):
+("---" in the table means "not supported because the RP2040 module does not match the PCB"):
 
 IECBuddy   | [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) <br> (4MB flash) | [RP2350-One](https://www.ebay.com/itm/286217752456) <br> (4MB flash) | [TENSTAR RP2350](https://aliexpress.com/item/1005008622261552.html) <br> (16MB flash) | Pi Pico <br> (2MB flash) | Pi Pico 2 <br> (4MB flash) | [Purple Pico](https://de.aliexpress.com/item/1005005594351599.html) <br> (16MB flash)
 -----------|------------|------------|-------------------|----------------|---------------------|---------------------
