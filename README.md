@@ -15,14 +15,14 @@ on the C64 screen from within the RAD menu.
 <br>
 
 The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
-  * [Barebones](IECBuddy-Barebones) (no PCB, any RP2040/RP235x board)
-  * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button, requires a RP2040 module pin-compatible with RP2040-One)
-  * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface)
-  * [Max](IECBuddy-Max) (like Mini but with parallel cable connector, requires a RP2040 module pin-compatible with Raspberry Pi Pico)
+  * [Barebones](IECBuddy-Barebones) (no PCB, use any RP2040/RP235x module)
+  * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button, requires a RP module pin-compatible with RP2040-One)
+  * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface, requires a RP module pin-compatible with RP2040-One)
+  * [Max](IECBuddy-Max) (like Mini but with parallel cable connector, requires a RP module pin-compatible with Raspberry Pi Pico)
 
 Of course a myriad versions of RP2040 and R235x modules exist. The PCBs for the IECBuddy Micro and Mini variants assume the pinout
 of a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99). The PCB for the
-IECBuddy Max variant assumes the pinout of a Raspberry Pi Pico. The IECBuddy Barebones variant can work with any RP2040 or RP2350 module.
+IECBuddy Max variant assumes the pinout of a Raspberry Pi Pico. The IECBuddy Barebones variant can work with any RP2040 or RP235x module.
 
 To keep things a bit more succinct, in the folling "RP module" stands for "RP2040/RP235x module".
 
