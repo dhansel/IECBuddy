@@ -20,9 +20,22 @@ The IECBuddy comes in four different variants, with differing amounts of compone
   * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface)
   * [Max](IECBuddy-Max) (like Mini but with parallel cable connector, requires a RP2040 module pin-compatible with Raspberry Pi Pico)
 
-All variants can plug directly into a RAD powered by a Raspberry Pi 3. If your RAD uses a Raspberry Pi Zero then 
+Of course a myriad versions of RP2040 and R2350 modules exist. The PCBs for the IECBuddy Micro and Mini variants assume the pinout
+of a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99). The PCB for the
+IECBuddy Max variant assumes the pinout of a Raspberry Pi Pico. The IECBuddy Barebones variant can work with any RP2040 or RP2350 module.
+
+If you have a module with a pinout matching your preferred IECBuddy variant, first check if your module is listed in the UF2 table within the
+[uploading the firmware](#uploading-the-firmware) section. If you cannot use one of the provided UF2 firmware files it should still
+be fairly easy to [compile and upload](software/IECBuddy/README.md) the firmware yourself.
+
+The IECBuddy stores files and disk images in the RP2040 module's flash memory. One MB of flash memory is used for the
+firmware itself, the remainder can be used for storing disk images. One MB of flash memory can hold about six D64 disk images.
+Note that disk images can easily be transferred between the RAD and the IECBuddy so the IECBuddy does not need to hold all
+your disk images at the same time.
+
+The IECBuddy can plug directly into a RAD powered by a Raspberry Pi 3. If your RAD uses a Raspberry Pi Zero then 
 you will need [an adapter cable](https://www.raspberrypi.com/products/micro-usb-male-to-usb-a-female-cable/) 
-to connect the IECBuddy since the Zero only has a micro-USB port.
+to connect the IECBuddy since the Zero only has a micro-USB OTG port.
 
 To build an IECBuddy, select and build whichever variant appeals to you and then follow the instructions in the
 [Uplodading the firmware](#uploading-the-firmware) section below.
@@ -52,9 +65,9 @@ IEC Bus Pin | Signal   | RP2040-One
 5           | DATA     | 4 
 6           | RESET    | 5 
 
-Then [upload the IECBuddy Micro firmware](#uploading-the-firmware) to the RP2040-One and you're good to go.
+Then [upload the IECBuddy Micro firmware](#uploading-the-firmware) to the RP2040 module and you're good to go.
 Downsides are that there is no display and no "Disk Change" button.
-If you would like a "Disk Change" button, simply wire a pushbutton switch between pins GND and 8 on the RP2040-One.
+If you would like a "Disk Change" button, simply wire a pushbutton switch between pins GND and 8 on the RP2040.
 
 Note that this connects the 5V IEC bus lines directly to the RP2040 inputs. There are varying
 opinions online on whether or not this can damage the RP2040 and/or whether the RP2040 is
@@ -74,11 +87,8 @@ If you would prefer proper voltage conversion and line drivers then use the "Min
 
 If you would like a somewhat cleaner and more permanent build but still want to go with a very small
 footprint and minimal component count, use the "IECBuddy Micro" variant. This PCB requires a RP2040
-module that is pin-compatible with the RP2040-One. So far we have tested the following boards:
-
-  * [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) (4MB Flash).
-  * [RP2350-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) (4MB Flash).
-  * [TENSTAR RP2350](https://aliexpress.com/item/1005008622261552.html) (16MB Flash).
+module that is pin-compatible with the RP2040-One. Check the [Uplodading the firmware](#uploading-the-firmware) 
+section below to see which RP2040 modules are supported.
 
 You can either solder the serial cable directly onto the board (connections are labeled on the board) or solder a 
 proper IEC connector onto the board and use a standard serial cable. This also comes with
@@ -108,7 +118,7 @@ You can skip the IEC1 connector if you solder the serial cable directly to the b
   </div>
 
 The Mini variant is slightly larger than the Micro version and requires more components besides
-the RP2040-One. As a result it comes with the following features that are not present in the smaller versions:
+the RP2040 module. As a result it comes with the following features that are not present in the smaller versions:
 
 First, it has space and connections on the PCB for a [0.96" TFT display](https://www.aliexpress.us/item/2251832810664524.html).
 The display shows the currently mounted disk image as well as disk status and progress bars while loading.
@@ -116,6 +126,9 @@ The display shows the currently mounted disk image as well as disk status and pr
 Second, it uses 7406 and 74LVC04 ICs for voltage conversion and properly interfacing with and driving the Commodore IEC bus lines.
 This is very similar to the way original hardware (like the 1541) interfaces to the IEC bus. It also protects the RP2040
 from the possible overcurrent and overvoltage conditions described in the "Barebones" section above.
+
+Like the Micro variant, this PCB requires a RP2040 module that is pin-compatible with the RP2040-One. 
+Check the [Uplodading the firmware](#uploading-the-firmware) section below to see which RP2040 modules are supported.
 
 A Gerber file for PCB production can be downloaded [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-mini-gerber.zip).<br>
 A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-mini-schematic.pdf).<br>
@@ -162,6 +175,9 @@ A Gerber file for PCB production can be downloaded [here](https://github.com/dha
 A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-max-schematic.pdf).<br>
 KiCad files for the board are [here](hardware/IECBuddy-max).
 
+Like the Micro variant, this PCB requires a RP2040 module that is pin-compatible with the Raspberry Pi Pico. 
+Check the [Uplodading the firmware](#uploading-the-firmware) section below to see which RP2040 modules are supported.
+
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
 
 Designator | Component 
@@ -184,9 +200,9 @@ Pre-compiled versions of the firmware are available for all four versions of the
 
 If your RP2040 module is included in the table below then programming the 2040 is easy. First, download the UF2 file appropriate for your IECBuddy variant and RP2040 module:
 
-IECBuddy   | [RP2040-One (4MB)](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) | [RP2350-One (4MB)](https://www.ebay.com/itm/286217752456) | ??? RP2040 (16MB) | [TENSTAR RP2350 (16MB)](https://aliexpress.com/item/1005008622261552.html) | Raspberry Pi Pico (2MB) | Raspberry Pi Pico 2 (1MB) | 
+IECBuddy   | [RP2040-One (4MB)](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) | [RP2350-One (4MB)](https://www.ebay.com/itm/286217752456) | ??? RP2040 (16MB) | [TENSTAR RP2350 (16MB)](https://aliexpress.com/item/1005008622261552.html) | Raspberry Pi Pico (2MB) | Raspberry Pi Pico 2 (4MB) | 
 -----------|------------|------------|-------------------|----------------|---------------------|---------------------
-Barebones  | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2350.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico1.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico1.uf2)
+Barebones  | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2350.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico1.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico2.uf2)
 Micro      | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2350.uf2) | not supported | not supported
 Mini       | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMiniTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMiniTenstar2350.uf2)  | not supported | not supported
 Max        | not supported | not supported | not supported | not supported | [IECBuddyMax1.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMaxPico1.uf2) | [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMaxPico2.uf2)
