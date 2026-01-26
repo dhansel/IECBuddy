@@ -15,10 +15,10 @@ on the C64 screen from within the RAD menu.
 <br>
 
 The IECBuddy comes in four different variants, with differing amounts of components and build effort required:
-  * [Barebones](IECBuddy-Barebones) (no PCB, requires only a RP2040-One board)
-  * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button)
+  * [Barebones](IECBuddy-Barebones) (no PCB, any RP2040 board)
+  * [Micro](IECBuddy-Micro) (like Barebones but with a PCB and disk change button, requires a RP2040 module pin-compatible with RP2040-One)
   * [Mini](IECBuddy-Mini) (like Micro but with a display and better bus interface)
-  * [Max](IECBuddy-Max) (like Mini but with parallel cable connector)
+  * [Max](IECBuddy-Max) (like Mini but with parallel cable connector, requires a RP2040 module pin-compatible with Raspberry Pi Pico)
 
 All variants can plug directly into a RAD powered by a Raspberry Pi 3. If your RAD uses a Raspberry Pi Zero then 
 you will need [an adapter cable](https://www.raspberrypi.com/products/micro-usb-male-to-usb-a-female-cable/) 
@@ -29,8 +29,10 @@ To build an IECBuddy, select and build whichever variant appeals to you and then
 
 ## IECBuddy Barebones
 
-The barebones variant is the simplest version, requiring no manufactured PCB, just a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99)
-board and a Commodore [serial cable](https://www.c64-wiki.com/wiki/Serial_Port). Either solder the cable directly to the RP2040-One or set it up on a breadboard:
+The barebones variant is the simplest version, requiring no manufactured PCB. While the pictures shown here use
+a [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) module, any
+RP2040 module should work. Additionally you will need a Commodore [serial cable](https://www.c64-wiki.com/wiki/Serial_Port)
+connector. Either solder the cable directly to the RP2040 module or set it up on a breadboard:
 
 <br>
   <div align="center">
@@ -39,7 +41,7 @@ board and a Commodore [serial cable](https://www.c64-wiki.com/wiki/Serial_Port).
   </div>
 <br>
 
-Connect the Commodore serial cable to the RP2040-One as follows:
+Connect the Commodore serial cable to the RP2040 module as follows:
 
 IEC Bus Pin | Signal   | RP2040-One
 ------------|----------|-----------
@@ -49,8 +51,8 @@ IEC Bus Pin | Signal   | RP2040-One
 4           | CLK      | 3 
 5           | DATA     | 4 
 6           | RESET    | 5 
-  
-Then [upload the IECBuddy](#uploading-the-firmware)  Micro firmware to the RP2040-One and you're good to go.
+
+Then [upload the IECBuddy Micro firmware](#uploading-the-firmware) to the RP2040-One and you're good to go.
 Downsides are that there is no display and no "Disk Change" button.
 If you would like a "Disk Change" button, simply wire a pushbutton switch between pins GND and 8 on the RP2040-One.
 
@@ -71,8 +73,14 @@ If you would prefer proper voltage conversion and line drivers then use the "Min
 <br>
 
 If you would like a somewhat cleaner and more permanent build but still want to go with a very small
-footprint and minimal component count, use the "IECBuddy Micro" variant. You can either solder
-the serial cable directly onto the board (connections are labeled on the board) or solder a 
+footprint and minimal component count, use the "IECBuddy Micro" variant. This PCB requires a RP2040
+module that is pin-compatible with the RP2040-One. So far we have tested the following boards:
+
+  * [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) (4MB Flash).
+  * [RP2350-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) (4MB Flash).
+  * [TENSTAR RP2350](https://aliexpress.com/item/1005008622261552.html) (16MB Flash).
+
+You can either solder the serial cable directly onto the board (connections are labeled on the board) or solder a 
 proper IEC connector onto the board and use a standard serial cable. This also comes with
 space for a pushbutton switch. No display though.
 
@@ -172,26 +180,30 @@ Parallel1, Parallel2 | [10-position IDC Connector](https://www.digikey.com/en/pr
 
 ## Uploading the firmware
 
-Pre-compiled versions of the firmware are available for all four versions of the IECBuddy. Programming the 2040 is easy:
+Pre-compiled versions of the firmware are available for all four versions of the IECBuddy and a variety of RP2040 modules. 
 
-  1) Download the UF2 file appropriate for your version of the board:
-     - Barebones and Micro: [IECBuddyMicro.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro.uf2) (also for Mini if if not using the bus driver ICs)
-     - Mini: [IECBuddyMini.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini.uf2)
-     - Max using PiPico 1: [IECBuddyMax1.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax1.uf2)
-     - Max using PiPico 2: [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMax2.uf2)
-  2) Connect the RP2040-One to your computer in "boot" mode. This can be done in two ways:
-     - Connect the RP2040-One to the computer **while holding down the "Boot" button on the device**. Note that this can be tricky
+If your RP2040 module is included in the table below then programming the 2040 is easy. First, download the UF2 file appropriate for your IECBuddy variant and RP2040 module:
+
+IECBuddy   | [RP2040-One (4MB)](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-Dual-Core-Processor/dp/B0BMM7SS99) | [RP2350-One (4MB)](https://www.ebay.com/itm/286217752456) | ??? RP2040 (16MB) | [TENSTAR RP2350 (16MB)](https://aliexpress.com/item/1005008622261552.html) | Raspberry Pi Pico (2MB) | Raspberry Pi Pico 2 (1MB) | 
+-----------|------------|------------|-------------------|----------------|---------------------|---------------------
+Barebones  | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2350.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico1.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroPico1.uf2)
+Micro      | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicro2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMicroTenstar2350.uf2) | not supported | not supported
+Mini       | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini2040One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMini2350One.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMiniTenstar2040.uf2) | [UF2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMiniTenstar2350.uf2)  | not supported | not supported
+Max        | not supported | not supported | not supported | not supported | [IECBuddyMax1.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMaxPico1.uf2) | [IECBuddyMax2.uf2](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/IECBuddyMaxPico2.uf2)
+
+Then:
+  1) Connect the RP2040 to your computer in "boot" mode. This can be done in two ways:
+     - Connect the RP2040 to the computer **while holding down the "Boot" button on the device**. Note that this can be tricky
        for the Mini version if you have already soldered the display since the display obstructs access to the RP2040-One.
-     - Connect the RP2040-One to the computer. This will register a new serial (COM) port on your computer.
+     - Connect the RP2040 to the computer. This will register a new serial (COM) port on your computer.
        Download [SKTool.exe](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/software/SKTool/SKTool.exe) and run it with the following parameters: `SKTool -p COMx boot` (where COMx is the new COM port).
        Alternatively, start a terminal program (e.g. TeraTerm, Putty or even the serial monitor in the Arduino IDE) and connect
        to the new COM port with a baud rate of 1200.
      As a result of either of these, your computer should now show a new external drive.
-  3) Copy the downloaded UF2 file to the root directory of the new drive.
-  4) Disconnect the RP2040-One from your computer.
+  2) Copy the downloaded UF2 file to the root directory of the new drive.
+  3) Disconnect the RP2040 from your computer.
 
-If you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md). This can be useful
-if you want to use a different RP2040 board, possibly with more flash memory for the file system.
+If your RP2040 module is not included in the table above and/or you would like to compile the firmware yourself, instructions can be found [here](software/IECBuddy/README.md). 
 
 ## Usage
 
