@@ -229,6 +229,11 @@ If your RP module is not included in the table above and/or you would like to co
 When it is connected to the RAD (via USB) and C64 (via serial cable), the IECBuddy behaves like a disk drive.
 The initial device number is 8 but can be configured from within the RAD menu system.
 
+The IECBuddy is based on the [IECDevice library](https://github.com/dhansel/IECDevice) and therefore supports the 
+same fastload protocols: JiffyDos, Epyx FastLoad, Final Cartridge 3, Action Replay 6, DolphinDos and SpeedDos.
+Games that use their own fastload protocols will likely not work, the IECBuddy will report error "M-E not supported"
+and the on-board LED will blink quickly (5Hz as opposed to 2Hz for a regular error).
+
 Loading the directory shows all files and disk images currently on the IECBuddy file system. You can use "CD"
 to enter and exit disk images. If you have a DOS wedge (like in JiffyDos), `@CD:GAMES.D64` will enter the GAMES.D64
 Disk image, `@CD/` will exit the image and go back to the top-level directory. If you do not have a DOS wedge, 
