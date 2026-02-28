@@ -177,7 +177,7 @@ A Gerber file for PCB production can be downloaded [here](https://github.com/dha
 A PDF file with the schematics is available [here](https://github.com/dhansel/IECBuddy/raw/refs/heads/main/hardware/IECBuddy-max-schematic.pdf).<br>
 KiCad files for the board are [here](hardware/IECBuddy-max).
 
-Like the Micro variant, this PCB requires a RP module that is pin-compatible with the Raspberry Pi Pico. 
+This PCB requires a RP module that is pin-compatible with the Raspberry Pi Pico. 
 Check the [Uplodading the firmware](#uploading-the-firmware) section below to see which RP modules are supported.
 
 You will need the following components (the given links are just suggestions, I do not get any kickbacks for them).
