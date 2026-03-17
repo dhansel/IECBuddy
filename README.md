@@ -269,3 +269,16 @@ For more information on the RAD menu structure relating to the IECBuddy see [her
 
 As an alternative to copying files via the RAD menu interface you can use connect the IECBuddy to your PC 
 and use [SKTool](software/SKTool) to manage the files directly.
+
+## Firmware revisions
+
+The following IECBuddy firmware revisions have been released:
+
+  - **1.0** (January 26, 2026)
+    - Initial release
+   
+  - **1.01** (March 16, 2026)
+    - Support ",A" (append) file open mode in main directory
+    - If a file is created in the main directory and the file has a known extension (PRG, SEQ, D64, D71, D81, G64, G71) then do not add an additional .PRG extension
+    - Fixed JiffyDos protocol timing issue when transmitting EOI in single-byte protocol
+    - Fixed support of "XF-" and "XF+" commands in DolphinDos
