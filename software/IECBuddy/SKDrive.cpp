@@ -69,6 +69,13 @@ static string tolower(string s)
   return s;
 }
 
+static bool endsWith(const std::string &str, const std::string &suffix)
+{
+    return str.size() >= suffix.size() &&
+           str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+
 static bool changeDisk = false;
 static void diskChangeButtonFcn()
 {
@@ -541,7 +548,7 @@ uint8_t SKDrive::openFile(uint8_t channel, const char *constName)
       char *c = comma;
       do { *c-- = 0; } while( c!=name && ((*c) & 0x7f)==' ');
       char cc = toupper(*(comma+1));
-      if( cc=='R' || cc=='W' )
+      if( cc=='R' || cc=='W' || cc=='A' )
         mode = cc;
       else
         {
@@ -564,9 +571,9 @@ uint8_t SKDrive::openFile(uint8_t channel, const char *constName)
         mode = 'W';
     }
 
-  // if the file type is neither PRG nor SEQ or mode is neither R nor W
+  // if the file type is neither PRG nor SEQ or mode is neither R, W nor A
   // then the file name is invalid
-  if( ftype==FT_NONE || (mode!='R' && mode!='W') )
+  if( ftype==FT_NONE || (mode!='R' && mode!='W' && mode!='A') )
     res = E_INVNAME;
 
   if( res == E_OK )
@@ -605,14 +612,25 @@ uint8_t SKDrive::openFile(uint8_t channel, const char *constName)
         {
           if( strchr(name, '*')!=NULL || strchr(name, '?')!=NULL )
             res = E_INVNAME;
-          else if( !overwrite && findFile(name, FT_ANY)!=NULL )
+          else if( !overwrite && mode!='A' && findFile(name, FT_ANY)!=NULL )
             res = E_EXISTS;
           else 
             {
-              // creating/overwriting file => always add PRG/SEQ extension
+              // creating/overwriting file => add PRG/SEQ extension if the file name
+              // does not already have a valid (known) extension.
               // this also means we can never create/overwrite a hidden file (ending in '$')
-              strcat(name, ftype==FT_PRG ? ".PRG" : ".SEQ");
-              m_file = LittleFS.open(name, "w");
+              const char *validExtensions[] =
+                {"PRG", "SEQ", "D64", "D71", "D81", "G64", "G71", NULL};
+
+              string s(name);
+              bool haveValidExtension = false;
+              for(int i=0; !haveValidExtension && validExtensions[i]!=NULL; i++)
+                haveValidExtension = endsWith(s, string(".") + string(validExtensions[i]));
+
+              if( !haveValidExtension )
+                strcat(name, ftype==FT_PRG ? ".PRG" : ".SEQ");
+
+              m_file = LittleFS.open(name, mode=='A' ? "a" : "w");
               res = m_file ? E_OK : E_WRITE;
             }
         }
@@ -1043,7 +1061,7 @@ const char *SKDrive::getStatusMessage(uint8_t statusCode)
     case E_INVNAME:              { message = "SYNTAX ERROR"; break; }
     case E_MEMEXE:               { message = "M-E NOT SUPPORTED"; break; }
     case E_TOOMANY:              { message = "TOO MANY OPEN FILES"; break; }
-    case E_SPLASH:               { message = "IEC-BUDDY V1.0"; break; }
+    case E_SPLASH:               { message = "IEC-BUDDY V1.01"; break; }
     default:                     { message = "UNKNOWN"; break; }
     }
 
