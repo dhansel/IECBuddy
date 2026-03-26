@@ -122,7 +122,7 @@ You can skip the IEC1 connector if you solder the serial cable directly to the b
 The Mini variant is slightly larger than the Micro version and requires more components besides
 the RP module. As a result it comes with the following features that are not present in the smaller versions:
 
-First, it has space and connections on the PCB for a [0.96" TFT display](https://www.aliexpress.us/item/2251832810664524.html).
+First, it has space and connections on the PCB for a [1.3" TFT display](https://www.aliexpress.us/item/3256805899270213.html).
 The display shows the currently mounted disk image as well as disk status and progress bars while loading.
 
 Second, it uses 7406 and 74LVC04 ICs for voltage conversion and properly interfacing with and driving the Commodore IEC bus lines.
@@ -146,7 +146,7 @@ U1         | [RP2040-One](https://www.amazon.com/RP2040-One-Pico-Like-Raspberry-
 U2         | [74LVC04AD SOIC](https://www.digikey.com/en/products/detail/nexperia-usa-inc/74LVC04AD-118/946673)
 U3         | [7406DR SOIC](https://www.digikey.com/en/products/detail/texas-instruments/SN7406DR/276661)
 SW1        | [Pushbutton Switch](https://www.digikey.com/en/products/detail/c-k/PTS645VH58-2-LFS/1146783)
-ST7789     | [TFT Display](https://www.aliexpress.us/item/2251832810664524.html)
+ST7789     | [TFT Display](https://www.aliexpress.us/item/3256805899270213.html)
 IEC1       | [IEC Bus Connector (6 Pin)](https://www.aliexpress.us/item/3256807108500271.html)
 
 Various components can be left out if desired:
@@ -191,7 +191,7 @@ U2         | [74CBTD3861DW](https://www.digikey.com/en/products/detail/texas-ins
 U3         | [74LVC04AD SOIC](https://www.digikey.com/en/products/detail/nexperia-usa-inc/74LVC04AD-118/946673)
 U4         | [7406DR SOIC](https://www.digikey.com/en/products/detail/texas-instruments/SN7406DR/276661)
 Reset,DiskChg | [Pushbutton Switch](https://www.digikey.com/en/products/detail/same-sky-formerly-cui-devices-/TS02-66-60-BK-100-LCR-D/15634327)
-ST7789     | [TFT Display](https://www.aliexpress.us/item/2251832810664524.html)
+ST7789     | [TFT Display](https://www.aliexpress.us/item/3256805899270213.html)
 IEC1       | [IEC Bus Connector (6 Pin)](https://www.aliexpress.us/item/3256807108500271.html)
 Parallel1, Parallel2 | [10-position IDC Connector](https://www.digikey.com/en/products/detail/on-shore-technology-inc/302-S101/2178422)
 
